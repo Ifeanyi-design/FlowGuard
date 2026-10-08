@@ -197,3 +197,17 @@
   to exist via GitHub API (curl ok). Resolved repo-locally: `git config http.sslBackend schannel` → push succeeded,
   `main -> main`, tracking set.
 - Remaining: Render Blueprint deploy + env vars + smoke test (dashboard-side, cannot be done from here).
+
+---
+
+## 2026-10-08T02:40:00Z — Phase 13: Customer submits, bank decides (action-framing fix)
+
+- Objective: User feedback — customer page showed "Authorize / Approve" + "Escalate", wrongly implying the
+  customer approves their own transfer. The backend already enforced bank-final-authority (customer APPROVE lands
+  in `awaiting_officer`; block/officer-decision are officer-only), but the UI framing contradicted it.
+- Change: customer buttons → "Confirm & submit to bank" + "Request officer review", with microcopy stating final
+  authorization rests with the bank; outcome box → "Bank decision" + pending-officer-confirmation notice.
+  Case detail page: officer APPROVE/ESCALATE/BLOCK controls render only in Ops context (`?ops`); customers see a
+  read-only bank-decision note. Committed f29946a, pushed to origin/main.
+- Commands: `npm run typecheck` → pass.
+- Remaining: Render deploy + smoke test.
