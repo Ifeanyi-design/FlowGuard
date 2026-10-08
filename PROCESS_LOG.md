@@ -269,7 +269,6 @@
 ---
 
 ## 2026-10-08T03:20:00Z — Phase 17: Collaborator UI rework review (Ifeanyi-design)
-
 - Objective: User pulled collaborator updates (405d45f design shots/memory, 50e523f Bank+Verify UI restyle,
   3f739cf Ops/CaseDetail restyle). Merge fast-forwarded cleanly to 3f739cf — no conflicts.
 - Review findings: rework was based on latest contracts (biometric/identity/recommendation intact) BUT regressed
@@ -287,4 +286,18 @@
   untracked the DB (`git rm --cached`).
 - Demo opening balance changed 1,250,000 → 250,000 (seed.py, pushed 4b64a13); live backend reseeded via
   POST /api/demo/reset and login confirms balance=250000.0.
-- Remaining: commit + push + Render deploy + smoke test.
+- Remaining: Render deploy + smoke test.
+
+---
+
+## 2026-10-08T03:30:00Z — Phase 18: Second collaborator wave (merge + DB untrack)
+
+- Objective: Remote added 40ad8c6/321ff3a (shots, render.yaml plan-fix + SPA rewrite, doc rewrites, re-committed
+  flowguard.db) while local had the audit-rows fix → merged (e8ba2c6), no conflicts. Verified all 17 log phases,
+  README principle sections, and PRD-state code survived their doc rewrites (diff showed code files identical).
+- Fix: `git rm --cached backend/flowguard.db` (earlier attempt silently failed — git rm aborts when any pathspec
+  misses; live DB data preserved, file now ignored); kept their render.yaml improvements.
+- Commands: `pytest -q` → 15 passed; merge clean; live DB intact (110592 bytes).
+- Remaining: push + Render deploy + smoke test. NOTE for team: two authors editing the same files
+  (PROCESS_LOG/README/pages) plus committing the sqlite binary causes constant merge churn — agree file
+  ownership (e.g. Ifeanyi owns frontend/pages + shots, lead owns backend + docs) and never commit *.db.
