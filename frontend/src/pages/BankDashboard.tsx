@@ -122,18 +122,27 @@ export default function BankDashboard() {
           </div>
           {pending ? (
             <div className="mt-2 text-sm">
-              <p className="text-2xl font-bold">{naira(pending.transaction.amount)}</p>
-              <p className="text-slate-600">Incoming from {pending.transaction.sender_name} is held for verification — {pending.risk.level} risk ({pending.risk.score}).</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Suspicious inflow under protection</p>
+              <p className="mt-1 text-2xl font-bold">{naira(pending.transaction.amount)}</p>
+              <p className="text-slate-600">
+                From {pending.transaction.sender_name} · {pending.risk.level} risk ({pending.risk.score}) ·{' '}
+                {pending.transaction.status.replace(/_/g, ' ')}
+              </p>
               {pending.transaction.status === 'AUTHORIZED' ? (
                 <Link to={`/cases/${pending.case_id}`} className="mt-3 inline-block rounded-xl bg-ink px-4 py-2 font-semibold text-white">View case</Link>
               ) : (
                 <button onClick={() => nav(`/verify/${pending.transaction.id}`)} className="mt-3 rounded-xl bg-ink px-4 py-2 font-semibold text-white">
-                  Verify payment
+                  Verify
                 </button>
               )}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-slate-500">No unusual money right now. Everyday spending stays instant; anything anomalous lands here for verification.</p>
+            <div className="mt-2 text-sm text-slate-500">
+              <p>No unusual money right now. Everyday spending stays instant; anything anomalous lands here for verification.</p>
+              <button disabled={busy} onClick={simulate} className="mt-2 rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 disabled:opacity-50">
+                Simulate ₦4m inflow
+              </button>
+            </div>
           )}
         </div>
       </div>
