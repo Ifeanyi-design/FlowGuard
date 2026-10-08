@@ -285,4 +285,6 @@
   auto-wiring for CORS_ORIGINS/VITE_API_URL, SPA rewrite /* → /index.html — the rewrite was missing and is
   required for /login /ops /verify deep links). Kept render.yaml improvements; restored .gitignore and
   untracked the DB (`git rm --cached`).
+- Demo opening balance changed 1,250,000 → 250,000 (seed.py, pushed 4b64a13); live backend reseeded via
+  POST /api/demo/reset and login confirms balance=250000.0.
 - Remaining: commit + push + Render deploy + smoke test.
