@@ -246,4 +246,6 @@
   App has auth guard + logout + role-aware nav.
 - Commands: `pytest -q` → 15 passed (login 401/ok, dashboard shape, topup deduct/insufficient, biometric gate);
   `npm run typecheck` → pass (one fix: replaceAll → regex for ES2020 lib).
+- Follow-up (pushed 7d530bb): user-specified layout — suspicious inflow nests under the Enhanced Protection
+  header with a button labeled exactly "Verify" → /verify/:id; empty state offers one-click ₦4m simulation.
 - Remaining: commit + push + Render deploy + smoke test.
