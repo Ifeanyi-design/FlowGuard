@@ -15,8 +15,9 @@ import {
   X
 } from 'lucide-react';
 import { api, getSession } from '../api';
-import { SCENARIO_CATALOGUE, type DashboardData } from '../types';
+import { SCENARIO_CATALOGUE, type DashboardData, type ScenarioInfo } from '../types';
 import { Eyebrow, Panel, RiskBadge, StatusPill, naira } from '../components/ui';
+import ScenarioEvidence from '../components/ScenarioEvidence';
 
 type TopupKind = 'airtime' | 'data' | 'bill' | null;
 
@@ -32,6 +33,7 @@ export default function BankDashboard() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [scenario, setScenario] = useState('A');
+  const [catalogue, setCatalogue] = useState<ScenarioInfo[] | null>(null);
 
   async function load() {
     setError('');
@@ -44,6 +46,7 @@ export default function BankDashboard() {
 
   useEffect(() => {
     load();
+    api.scenarios().then((r) => setCatalogue(r.catalogue)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -286,6 +289,7 @@ export default function BankDashboard() {
             Simulate Faith → you ₦4,000,000
           </button>
         </div>
+        <ScenarioEvidence entry={catalogue?.find((s) => s.id === scenario)} />
       </Panel>
 
       {/* Top-up modal */}

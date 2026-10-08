@@ -15,7 +15,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { api, setIds } from '../api';
-import { PURPOSES, SCENARIO_CATALOGUE, type CaseItem, type RiskResult, type Transaction } from '../types';
+import { PURPOSES, SCENARIO_CATALOGUE, type CaseItem, type RiskResult, type ScenarioInfo, type Transaction } from '../types';
 import {
   Eyebrow,
   Panel,
@@ -26,6 +26,7 @@ import {
   StatusPill,
   naira
 } from '../components/ui';
+import ScenarioEvidence from '../components/ScenarioEvidence';
 
 type Step = 'idle' | 'alert' | 'verified' | 'reassessed' | 'decided';
 
@@ -34,6 +35,7 @@ const DONE_STEPS: Step[] = ['verified', 'reassessed', 'decided'];
 export default function CustomerDashboard() {
   const { txnId } = useParams();
   const [scenario, setScenario] = useState('A');
+  const [catalogue, setCatalogue] = useState<ScenarioInfo[] | null>(null);
   const [sender, setSender] = useState('Faith');
   const [amount, setAmount] = useState(4000000);
   const [txn, setTxn] = useState<Transaction | null>(null);
@@ -58,6 +60,7 @@ export default function CustomerDashboard() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    api.scenarios().then((r) => setCatalogue(r.catalogue)).catch(() => {});
     if (txnId) {
       loadExisting(Number(txnId));
     } else {
@@ -314,6 +317,8 @@ export default function CustomerDashboard() {
             <span className="mx-1.5 text-slate-700">·</span>
             expected: <span className="text-slate-300">{activeScenario?.expectation}</span>
           </p>
+
+          <ScenarioEvidence entry={catalogue?.find((s) => s.id === scenario) ?? activeScenario} />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="text-xs font-medium text-slate-400">

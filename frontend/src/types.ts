@@ -57,11 +57,17 @@ export const SCENARIOS: Record<string, string> = {
   E: 'Account takeover'
 };
 
+export interface ScenarioSignal {
+  tone: 'red' | 'amber' | 'green';
+  text: string;
+}
+
 export interface ScenarioInfo {
   id: string;
   class: string;
   title: string;
   expectation: string;
+  signals?: ScenarioSignal[];
 }
 
 /** Fraud scenarios classified under risk classes (mirrors backend catalogue). */

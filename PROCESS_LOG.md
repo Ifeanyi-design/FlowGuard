@@ -298,7 +298,21 @@
 - Fix: `git rm --cached backend/flowguard.db` (earlier attempt silently failed — git rm aborts when any pathspec
   misses; live DB data preserved, file now ignored); kept their render.yaml improvements.
 - Commands: `pytest -q` → 15 passed; merge clean; live DB intact (110592 bytes).
-- Remaining: push + Render deploy + smoke test. NOTE for team: two authors editing the same files
+- Remaining: push + Render deploy + smoke test.
+
+---
+
+## 2026-10-08T03:50:00Z — Phase 20: Scenario evidence panel (judge-ready signals)
+
+- Objective: User feedback — UI showed classifications without the evidence behind them. Added a signal panel
+  under both scenario selectors: Scenario X — title, red/amber/green signal rows, expected outcome.
+- Change (backend): CATALOGUE entries carry `signals[]`, new GET /api/demo/scenarios (no reset).
+  (frontend): components/ScenarioEvidence.tsx, wired into BankDashboard demo strip + Verify sandbox.
+- Verification: backend 15/15; scenarios endpoint returns 5/4/5/4/6 signals for A–E. Local tsc could NOT run —
+  machine has ~500MB free RAM and Node/V8 fails to initialize (environmental, third occurrence). Mitigated by
+  review + using only already-imported lucide icons (swapped AlertOctagon for ShieldAlert to avoid any export
+  risk). Render's builder has real memory and runs tsc as part of `npm run build`.
+- Remaining: commit + push + Render deploy (watch the build log for tsc) + smoke test. NOTE for team: two authors editing the same files
   (PROCESS_LOG/README/pages) plus committing the sqlite binary causes constant merge churn — agree file
   ownership (e.g. Ifeanyi owns frontend/pages + shots, lead owns backend + docs) and never commit *.db.
 

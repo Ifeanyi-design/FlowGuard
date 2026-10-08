@@ -70,6 +70,8 @@ export const api = {
       '/api/demo/reset',
       { method: 'POST', body: JSON.stringify({ scenario }) }
     ),
+  scenarios: () =>
+    req<{ catalogue: import('./types').ScenarioInfo[]; classes: string[] }>('/api/demo/scenarios'),
   incoming: (sender_name: string, amount: number, scenario: string) =>
     req<{ transaction: import('./types').Transaction; risk: import('./types').RiskResult; case_id: number; unusual: boolean }>(
       '/api/transactions/incoming',
@@ -114,8 +116,7 @@ export const api = {
     req(`/api/transactions/${id}/escalate`, { method: 'POST', body: '{}' }),
   block: (id: number) =>
     req(`/api/transactions/${id}/block`, { method: 'POST', body: '{}' }, true),
-  cases: (asOfficer = false) =>
-    req<{ cases: { case: import('./types').CaseItem; transaction: import('./types').Transaction; customer: string }[] }>(
+  cases: (asOfficer = false) =>    req<{ cases: { case: import('./types').CaseItem; transaction: import('./types').Transaction; customer: string }[] }>(
       '/api/cases',
       {},
       asOfficer
