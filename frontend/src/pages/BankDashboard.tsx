@@ -325,14 +325,19 @@ export default function BankDashboard() {
               Amount (₦)
               <input
                 type="number"
+                min={1}
+                max={100000}
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
                 className="fg-input mt-1.5 font-mono"
               />
             </label>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Max {naira(100000)} per simulated purchase.
+            </p>
 
             <button
-              disabled={busy}
+              disabled={busy || amount <= 0 || amount > 100000}
               onClick={doTopup}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/10 py-2.5 text-sm font-semibold text-accent transition-all duration-200 hover:bg-accent/20 hover:shadow-glow-cyan disabled:opacity-50"
             >

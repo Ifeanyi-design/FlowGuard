@@ -35,6 +35,36 @@ export function logout() {
   ['fg_user_id', 'fg_officer_id', 'fg_name', 'fg_role'].forEach((k) => localStorage.removeItem(k));
 }
 
+/** Turn any backend error payload into a readable message.
+ *
+ * FastAPI returns `detail` as a STRING for HTTPException (401/403/409/422 raised
+ * by hand), but as an ARRAY of `{loc, msg}` objects for request-validation (422)
+ * errors. Passing that array straight into `new Error()` stringifies it to
+ * "[object Object]" — which is what the UI was displaying instead of the real
+ * reason (e.g. a top-up above the ₦100,000 cap).
+ */
+function describeError(body: unknown, status: number): string {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+
+  if (typeof detail === 'string' && detail.trim()) return detail;
+
+  if (Array.isArray(detail)) {
+    const parts = detail.map((entry) => {
+      const item = entry as { loc?: unknown[]; msg?: unknown };
+      const field = Array.isArray(item.loc)
+        ? item.loc.filter((p) => p !== 'body' && p !== 'query' && p !== 'path').join('.')
+        : '';
+      const msg = typeof item.msg === 'string' ? item.msg : 'invalid value';
+      return field ? `${field}: ${msg}` : msg;
+    });
+    if (parts.length) return parts.join('; ');
+  }
+
+  if (detail && typeof detail === 'object') return JSON.stringify(detail);
+
+  return `Request failed (${status})`;
+}
+
 async function req<T>(path: string, opts: RequestInit = {}, asOfficer = false): Promise<T> {
   const uid = asOfficer ? officerId || userId : userId;
   const res = await fetch(`${BASE}${path}`, {
@@ -46,8 +76,8 @@ async function req<T>(path: string, opts: RequestInit = {}, asOfficer = false): 
     }
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { detail?: string }).detail || `Request failed (${res.status})`);
+    const body = await res.json().catch(() => null);
+    throw new Error(describeError(body, res.status));
   }
   return res.json() as Promise<T>;
 }
