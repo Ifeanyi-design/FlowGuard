@@ -1,14 +1,58 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArrowDownLeft,
+  BadgeCheck,
+  Ban,
+  CheckCircle2,
+  Circle,
+  KeyRound,
+  Send,
+  ShieldAlert,
+  ShieldCheck,
+  UserCheck,
+  Users,
+  type LucideIcon
+} from 'lucide-react';
 import { api } from '../api';
 import type { AuditEntry, CaseItem, RiskResult, Transaction } from '../types';
-import { RiskBadge, ScoreBar, naira } from '../components/ui';
+import { Panel, RiskBadge, ScoreBar, SectionHeading, StatusPill, naira, riskTone } from '../components/ui';
+
+const AUDIT_ICONS: Record<string, LucideIcon> = {
+  transaction_received: ArrowDownLeft,
+  risk_triggered: ShieldAlert,
+  risk_engine_failed: ShieldAlert,
+  identity_code_issued: KeyRound,
+  identity_verified: KeyRound,
+  identity_failed: AlertTriangle,
+  customer_verified: UserCheck,
+  sender_disputed: AlertTriangle,
+  purpose_selected: Send,
+  beneficiary_submitted: Users,
+  risk_reassessed: ShieldCheck,
+  biometric_verified: CheckCircle2,
+  authorization_decision: BadgeCheck,
+  case_escalated: AlertTriangle,
+  transaction_blocked: Ban,
+  officer_approve: CheckCircle2,
+  officer_escalate: AlertTriangle,
+  officer_block: Ban,
+  topup_purchased: Send
+};
+
+function auditIcon(action: string): LucideIcon {
+  return AUDIT_ICONS[action] ?? Circle;
+}
 
 export default function CaseDetailPage() {
   const { id } = useParams();
   const [detail, setDetail] = useState<{
-    case: CaseItem; transaction: Transaction; risk: RiskResult;
-    verification: Record<string, unknown>; allowed_actions?: string[];
+    case: CaseItem;
+    transaction: Transaction;
+    risk: RiskResult;
+    verification: Record<string, unknown>;
+    allowed_actions?: string[];
   } | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [error, setError] = useState('');
@@ -34,6 +78,9 @@ export default function CaseDetailPage() {
 
   async function decide(decision: 'APPROVE' | 'ESCALATE' | 'BLOCK') {
     if (!id) return;
+    if (decision === 'BLOCK' && !window.confirm('Block this transaction? This is a destructive, officer-only action.')) {
+      return;
+    }
     setError('');
     setMsg('');
     try {
@@ -45,107 +92,211 @@ export default function CaseDetailPage() {
     }
   }
 
-  if (error && !detail) return <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>;
+  if (error && !detail) {
+    return (
+      <div role="alert" className="rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+        {error}
+      </div>
+    );
+  }
   if (!detail) return <div className="text-sm text-slate-500">Loading case…</div>;
+
   const { case: c, transaction: t, risk } = detail;
   const allowed: string[] = detail.allowed_actions || [];
+  const tone = riskTone(risk.level);
+  const drivers = risk.factors.filter((f) => f.points >= 0);
+  const mitigating = risk.factors.filter((f) => f.points < 0);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <div className="rounded-2xl bg-ink p-5 text-white">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-bold">Case #{c.id} · {naira(t.amount)} from {t.sender_name}</h1>
-          <RiskBadge risk={risk} size="sm" />
+    <div className="mx-auto max-w-4xl space-y-5">
+      {/* Header */}
+      <Panel className="animate-fade-up p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Case #{c.id} · scenario {c.scenario}
+            </span>
+            <h1 className="mt-1.5 text-xl font-bold tracking-tight text-slate-100 sm:text-2xl">
+              <span className="font-mono">{naira(t.amount)}</span>{' '}
+              <span className="text-sm font-normal text-slate-400">from {t.sender_name}</span>
+            </h1>
+          </div>
+          <RiskBadge risk={risk} />
         </div>
-        <p className="mt-1 text-sm text-slate-300">Status {c.status} · FlowGuard recommendation {c.decision} · Bank decision {c.resolution ?? 'pending'} · scenario {c.scenario}</p>
-        <div className="mt-2"><ScoreBar score={risk.score} /></div>
-      </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <StatusPill status={c.status} />
+          <span className="font-mono text-[11px] text-slate-500">decision: {c.decision}</span>
+          <span className="font-mono text-[11px] text-slate-500">txn: {t.status}</span>
+        </div>
+        <div className="mt-4">
+          <ScoreBar score={risk.score} level={risk.level} />
+        </div>
+      </Panel>
 
-      {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {msg && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{msg}</div>}
+      {error && (
+        <div role="alert" className="rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          {error}
+        </div>
+      )}
+      {msg && (
+        <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          {msg}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border bg-white p-4">
-          <h2 className="font-semibold">Transaction</h2>
-          <dl className="mt-2 space-y-1 text-sm">
-            <div className="flex justify-between"><dt className="text-slate-500">Amount</dt><dd className="font-semibold">{naira(t.amount)}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Sender</dt><dd>{t.sender_name} ({t.sender_risk})</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Purpose</dt><dd>{t.purpose || '—'}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Beneficiary</dt><dd>{t.beneficiary_name || '—'} ({t.beneficiary_risk})</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Verification</dt><dd>{c.verification_state}</dd></div>
+        <Panel className="p-5">
+          <SectionHeading title="Transaction" />
+          <dl className="mt-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+              <dt className="text-slate-500">Amount</dt>
+              <dd className="font-mono font-semibold text-slate-100">{naira(t.amount)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+              <dt className="text-slate-500">Sender</dt>
+              <dd className="text-slate-200">
+                {t.sender_name} <span className="font-mono text-[10px] text-slate-500">({t.sender_risk})</span>
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+              <dt className="text-slate-500">Purpose</dt>
+              <dd className="text-slate-200">{t.purpose || '—'}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+              <dt className="text-slate-500">Beneficiary</dt>
+              <dd className="text-slate-200">
+                {t.beneficiary_name || '—'}{' '}
+                <span className="font-mono text-[10px] text-slate-500">({t.beneficiary_risk})</span>
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-slate-500">Verification</dt>
+              <dd>
+                <StatusPill status={c.verification_state} size="sm" />
+              </dd>
+            </div>
           </dl>
-        </div>
-        <div className="rounded-2xl border bg-white p-4">
-          <h2 className="font-semibold">Risk factors</h2>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk drivers</p>
-          <ul className="mt-1 space-y-1.5 text-sm">
-            {risk.factors.filter((f) => f.points >= 0).map((f) => (
-              <li key={f.signal} className="flex justify-between gap-2 border-b border-slate-100 py-1 last:border-0">
-                <span>{f.explanation}</span>
-                <b className="text-red-600">+{f.points}</b>
+        </Panel>
+
+        <Panel className="p-5">
+          <div className="flex items-center justify-between gap-2">
+            <SectionHeading title="Risk factors" />
+            <RiskBadge risk={risk} size="sm" />
+          </div>
+
+          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Risk drivers</p>
+          <ul className="mt-1 divide-y divide-white/5">
+            {drivers.map((f) => (
+              <li key={f.signal} className="flex items-start justify-between gap-2 py-2 text-xs">
+                <span className="text-slate-300">{f.explanation}</span>
+                <b className="shrink-0 font-mono text-rose-300">+{f.points}</b>
               </li>
             ))}
-            {risk.factors.length === 0 && <li className="text-slate-400">No factor breakdown recorded.</li>}
+            {drivers.length === 0 && <li className="py-2 text-xs text-slate-500">No adverse drivers.</li>}
           </ul>
-          {risk.factors.some((f) => f.points < 0) && (
+
+          {mitigating.length > 0 && (
             <>
-              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Mitigating</p>
-              <ul className="mt-1 space-y-1.5 text-sm">
-                {risk.factors.filter((f) => f.points < 0).map((f) => (
-                  <li key={f.signal} className="flex justify-between gap-2 border-b border-slate-100 py-1 last:border-0">
-                    <span>{f.explanation}</span>
-                    <b className="text-emerald-600">{f.points}</b>
+              <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Mitigating</p>
+              <ul className="mt-1 divide-y divide-white/5">
+                {mitigating.map((f) => (
+                  <li key={f.signal} className="flex items-start justify-between gap-2 py-2 text-xs">
+                    <span className="text-slate-300">{f.explanation}</span>
+                    <b className="shrink-0 font-mono text-emerald-300">{f.points}</b>
                   </li>
                 ))}
               </ul>
             </>
           )}
-        </div>
+
+          <p className="mt-3 border-t border-line pt-3 text-[11px] text-slate-500">
+            Recommended action: <span className="font-mono text-slate-300">{risk.recommended_action}</span>
+          </p>
+        </Panel>
       </div>
 
       {asOfficer ? (
-      <div className="rounded-2xl border bg-white p-4">
-        <h2 className="font-semibold">Officer actions</h2>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {(['APPROVE', 'ESCALATE', 'BLOCK'] as const).map((d) => (
+        <Panel className="p-5">
+          <SectionHeading title="Officer actions" hint="Gated by case status; the bank is the final authority." />
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
-              key={d}
-              disabled={!allowed.includes(d)}
-              onClick={() => decide(d)}
-              title={allowed.includes(d) ? d : `Not allowed while ${c.status}`}
-              className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!allowed.includes('APPROVE')}
+              onClick={() => decide('APPROVE')}
+              title={allowed.includes('APPROVE') ? 'Approve' : `Not allowed while ${c.status}`}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_-8px_rgba(52,211,153,0.9)] transition-all duration-200 hover:from-emerald-300 hover:to-emerald-500 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
             >
-              {d}
+              <BadgeCheck size={16} aria-hidden /> APPROVE
             </button>
-          ))}
-        </div>
-        {allowed.length === 0 && <p className="mt-1 text-xs text-slate-400">No actions available in status {c.status}.</p>}
-      </div>
+            <button
+              disabled={!allowed.includes('ESCALATE')}
+              onClick={() => decide('ESCALATE')}
+              title={allowed.includes('ESCALATE') ? 'Escalate' : `Not allowed while ${c.status}`}
+              className="inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/5 px-4 py-2.5 text-sm font-semibold text-amber-300 transition-all duration-200 hover:bg-amber-400/15 hover:shadow-glow-amber disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+            >
+              <AlertTriangle size={16} aria-hidden /> ESCALATE
+            </button>
+            <button
+              disabled={!allowed.includes('BLOCK')}
+              onClick={() => decide('BLOCK')}
+              title={allowed.includes('BLOCK') ? 'Block' : `Not allowed while ${c.status}`}
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-400/40 bg-rose-500/5 px-4 py-2.5 text-sm font-semibold text-rose-300 transition-all duration-200 hover:bg-rose-500/15 hover:shadow-glow-rose disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+            >
+              <Ban size={16} aria-hidden /> BLOCK
+            </button>
+          </div>
+          {allowed.length === 0 && (
+            <p className="mt-2 text-[11px] text-slate-500">No actions available in status {c.status}.</p>
+          )}
+        </Panel>
       ) : (
-      <div className="rounded-2xl border bg-white p-4 text-sm text-slate-500">
-        FlowGuard recommendation: <b className="text-slate-700">{c.decision}</b> · Bank decision:{' '}
-        <b className="text-slate-700">{c.resolution ?? 'pending'}</b> · status {c.status}.
-        Approval, escalation and blocking are decided by bank officers in the Ops dashboard — never by the customer.
-      </div>
+        <Panel className="p-5">
+          <SectionHeading title="Bank decision" />
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            Bank decision: <b className="text-slate-200">{c.decision}</b> · status {c.status}. Approval, escalation
+            and blocking are decided by bank officers in the Ops dashboard — never by the customer.
+          </p>
+        </Panel>
       )}
 
-      <div className="rounded-2xl border bg-white p-4">
-        <h2 className="font-semibold">Audit timeline</h2>
-        <ol className="mt-2 space-y-2">
-          {audit.map((a, i) => (
-            <li key={i} className="flex gap-3 text-sm">
-              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-ink" />
-              <div>
-                <b>{a.action}</b> <span className="text-slate-500">· {a.actor} · {new Date(a.timestamp).toLocaleString()}</span>
-                {a.metadata && Object.keys(a.metadata).length > 0 && (
-                  <pre className="mt-1 overflow-x-auto rounded bg-mist p-2 text-xs">{JSON.stringify(a.metadata, null, 1)}</pre>
+      <Panel className="p-5">
+        <SectionHeading title="Audit timeline" hint="Every significant event is recorded chronologically." />
+        <ol className="mt-4 space-y-0">
+          {audit.map((a, i) => {
+            const Icon = auditIcon(a.action);
+            const hasMeta = a.metadata && Object.keys(a.metadata).length > 0;
+            return (
+              <li key={i} className="relative flex gap-3 pb-4 last:pb-0">
+                {i < audit.length - 1 && (
+                  <span className="absolute left-[13px] top-7 h-full w-px bg-white/10" aria-hidden />
                 )}
-              </div>
-            </li>
-          ))}
-          {audit.length === 0 && <li className="text-sm text-slate-400">No audit entries.</li>}
+                <span
+                  className={`relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
+                    i === audit.length - 1
+                      ? `${tone.border} ${tone.bg} ${tone.text}`
+                      : 'border-white/10 bg-white/[0.03] text-slate-400'
+                  }`}
+                >
+                  <Icon size={13} aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <b className="text-xs font-semibold text-slate-200">{a.action.replace(/_/g, ' ')}</b>
+                    <span className="font-mono text-[10px] text-slate-500">
+                      {a.actor} · {new Date(a.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  {hasMeta && (
+                    <pre className="fg-thin-scroll mt-1.5 overflow-x-auto rounded-lg border border-line bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-slate-400">
+                      {JSON.stringify(a.metadata, null, 1)}
+                    </pre>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+          {audit.length === 0 && <li className="text-xs text-slate-500">No audit entries.</li>}
         </ol>
-      </div>
+      </Panel>
     </div>
   );
 }
