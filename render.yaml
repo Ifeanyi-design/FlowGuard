@@ -39,7 +39,10 @@ services:
     name: flowguard-web
     runtime: static
     rootDir: frontend
-    plan: free
+    # NOTE: do NOT add `plan` here. Render's blueprint schema defines a static
+    # site as `type: web` + `runtime: static` with additionalProperties: false and
+    # NO `plan` property — static sites are always free. Adding `plan: free` fails
+    # with: "services[1].plan — no such plan free for service type web".
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:

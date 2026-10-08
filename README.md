@@ -7,11 +7,16 @@ Demonstrates **Detect → Assess → Contain → Verify → Understand → Reass
 ## Architecture
 
 ```
-React (customer + ops) → FastAPI → demo auth (X-User-Id, role from DB)
+React (bank app + ops console) → FastAPI
+  → /api/auth/login (demo email + PIN) → returns user + account + demo actor ids
+  → /api/dashboard, /api/demo/topup (everyday banking surface)
+  → X-User-Id header → role resolved server-side (client roles are never trusted)
   → Transaction service → Risk Engine (weighted, explainable)
   → Policy Engine (deterministic hard rules) → MockBankAdapter
   → Cases / RiskEvents / AuditLogs → PostgreSQL (prod) / SQLite (local)
 ```
+
+Frontend routes: `/login`, `/` (bank dashboard), `/verify/:txnId?` (verification flow), `/ops` (officer ledger), `/cases/:id` (case detail). All non-login routes are auth-gated (`RequireAuth`).
 
 Backend owns risk scores, decisions, case ownership, state, audit. Frontend is only a client (`frontend/src/api.ts` is the single API layer).
 
@@ -40,7 +45,9 @@ npm run dev              # http://localhost:5173 → /api proxied to http://loca
 ## Environment variables
 
 Backend: `DATABASE_URL` (default `sqlite:///./flowguard.db`; Render injects Postgres), `CORS_ORIGINS` (comma-separated; default localhost:5173), `ENV`.
-Frontend: `VITE_API_URL` (production only — local dev uses the same-origin Vite `/api` proxy, no .env needed).
+Frontend: `VITE_API_URL` (production only — local dev uses the same-origin Vite `/api` proxy, no .env needed). Vite inlines this at **build** time, so it must be set before/at build.
+
+On Render both of these are wired automatically by `render.yaml` (`fromService`), so the blueprint needs no manual variables.
 
 ## Database setup
 
@@ -56,10 +63,14 @@ cd frontend; npm run build
 
 ## Render deployment
 
-Render ONLY, via Blueprint `render.yaml`: `flowguard-db` (PostgreSQL free), `flowguard-api` (Web Service, rootDir `backend`), `flowguard-web` (Static Site, rootDir `frontend`, publish `dist`).
-1. Push repo to GitHub, **New → Blueprint**, select repo.
-2. After deploy set `CORS_ORIGINS=https://<flowguard-web>.onrender.com` on the API and `VITE_API_URL=https://<flowguard-api>.onrender.com` on the web service, then redeploy/trigger rebuild.
-3. Smoke test: `GET /api/health`, `POST /api/demo/reset`, run demo flow in the web UI.
+Render ONLY, via Blueprint `render.yaml`: `flowguard-db` (PostgreSQL free), `flowguard-api` (Web Service, rootDir `backend`, health check `/api/health`), `flowguard-web` (Static Site, rootDir `frontend`, publish `dist`).
+
+1. Push the repo to GitHub, then **New → Blueprint** and select the repo.
+2. `render.yaml` **auto-wires** `CORS_ORIGINS` (API ← the static site's URL) and `VITE_API_URL` (static site ← the API's URL) using `fromService`, so there are no manual dashboard variables. If your plan/blueprint rejects `fromService` for a static site, set them by hand instead:
+   - API service: `CORS_ORIGINS=https://<flowguard-web>.onrender.com`
+   - Web service: `VITE_API_URL=https://<flowguard-api>.onrender.com` — then trigger a **rebuild** (it is a build-time variable).
+3. The static site ships an **SPA rewrite** (`/*` → `/index.html`) so deep links and refreshes on `/login`, `/ops`, `/verify/:txnId` and `/cases/:id` do not 404.
+4. Smoke test: `GET /api/health`, then log in with `treasure@demo.bank` / PIN `1234`, simulate the ₦4m inflow and run the verification flow.
 
 ## Demo credentials / scenarios
 
