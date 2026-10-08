@@ -301,3 +301,21 @@
 - Remaining: push + Render deploy + smoke test. NOTE for team: two authors editing the same files
   (PROCESS_LOG/README/pages) plus committing the sqlite binary causes constant merge churn — agree file
   ownership (e.g. Ifeanyi owns frontend/pages + shots, lead owns backend + docs) and never commit *.db.
+
+---
+
+## 2026-10-08T03:40:00Z — Phase 19: Ops hidden from customers, approval credits, refresh restarts
+
+- Objective: User request — (1) customers must not see any Ops room/button; (2) officer approval adds the ₦4m
+  to the customer balance; (3) page refresh returns everything to the start.
+- Change (backend): officer APPROVE on an INCOMING case credits account.balance (mock ledger) and records the
+  new balance in the settlement audit; test asserts 250,000 + 4,000,000. (frontend): removed customer Ops-view
+  tab, /ops route requires officer role (redirects customers to /), case-detail officer controls now keyed off
+  the logged-in role instead of the ?ops URL hack; App reload detector (Navigation Timing API) reseeds the demo
+  behind a "Restarting demo…" gate — true refreshes restart, SPA navigation untouched, login session survives
+  (seed recreates the same ids).
+- Note: three App.tsx edits initially failed (collaborator had restyled the file) and one partial apply left
+  `ready`/`RequireOfficer` referenced but undefined — repaired by completing the half-applied edit; typecheck
+  is the backstop and passes.
+- Commands: `pytest -q` → 15 passed; `npm run typecheck` → pass on retry (transient Node OOM again).
+- Remaining: commit + push + Render deploy + smoke test.

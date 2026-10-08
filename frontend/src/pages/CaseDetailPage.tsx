@@ -15,7 +15,7 @@ import {
   Users,
   type LucideIcon
 } from 'lucide-react';
-import { api } from '../api';
+import { api, getSession } from '../api';
 import type { AuditEntry, CaseItem, RiskResult, Transaction } from '../types';
 import { Panel, RiskBadge, ScoreBar, SectionHeading, StatusPill, naira, riskTone } from '../components/ui';
 
@@ -94,7 +94,7 @@ export default function CaseDetailPage() {
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
-  const asOfficer = window.location.search.includes('ops');
+  const asOfficer = getSession().role === 'officer';
 
   async function load() {
     if (!id) return;

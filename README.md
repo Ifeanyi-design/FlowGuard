@@ -90,7 +90,9 @@ confirm/deny → purpose → beneficiary → reassess → mock Face ID/fingerpri
 (FlowGuard records only a recommendation) → officer APPROVE (authorizes + executes simulated settlement) /
 STEP-UP / ESCALATE / BLOCK in Ops. Identity, biometric and bank gates are enforced server-side (409/422/403);
 deny keeps disputed transactions contained. Governing principle (see PRD.md): the customer provides evidence,
-FlowGuard assesses risk, the bank alone authorizes.
+FlowGuard assesses risk, the bank alone authorizes. Officer APPROVE credits an approved inflow to the
+customer balance and settles (simulated); the Ops room is officer-only and invisible to customers.
+Refreshing the page restarts the whole demo (fresh ₦250k balance, no cases).
 
 Transaction states (PRD §10): CREATED → UNDER_REVIEW → CUSTOMER_VERIFIED → BENEFICIARY_SUBMITTED → RISK_REASSESSED → AUTHORIZED → SETTLED (simulated), with STEP_UP_REQUIRED / ESCALATED / BLOCKED branches. Cases carry status + resolution; audit covers received → risk → verified → purpose → beneficiary → reassessed → step-up → decision → settlement. Ops tab → open case → APPROVE/ESCALATE/BLOCK (officer-only, state-gated) → audit timeline.
 

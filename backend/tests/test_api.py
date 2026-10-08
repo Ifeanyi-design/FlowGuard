@@ -84,6 +84,9 @@ def test_full_demo_flow():
     audit2 = client.get(f"/api/cases/{case_id}/audit", headers=h).json()["audit"]
     assert "payment_settled_simulated" in [a["action"] for a in audit2]
     assert "authorization_decision" in [a["action"] for a in audit2]
+    # Officer approval credited the ₦4m inflow to the customer balance.
+    dash = client.get("/api/dashboard", headers=h).json()
+    assert dash["account"]["balance"] == 250_000 + 4_000_000
 
 
 def test_block_requires_officer():

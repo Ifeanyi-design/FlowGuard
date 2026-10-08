@@ -107,9 +107,15 @@ def officer_decision(case_id: int, body: dict, db: Session = Depends(get_db),
     if decision == "APPROVE":
         # ONLY the bank can approve: authorizing executes the (simulated) settlement.
         # Customer evidence and FlowGuard's recommendation never touch the ledger.
+        # An approved INCOMING transfer is credited to the customer's balance here.
         from ..bank_adapter import get_adapter
 
         bank = get_adapter().authorize(f"TXN-{txn.id}", txn.amount, "APPROVE")
+        acct = db.query(Account).filter(Account.id == txn.account_id).first()
+        credited = 0.0
+        if txn.direction == "IN":
+            acct.balance += txn.amount
+            credited = txn.amount
         txn.status, txn.decision = "SETTLED", "APPROVE"
         case.status, case.decision, case.resolution = "SETTLED", "APPROVE", "approved_settled"
         log(db, action="officer_approve", actor=user.name, case_id=case.id,
@@ -117,7 +123,9 @@ def officer_decision(case_id: int, body: dict, db: Session = Depends(get_db),
         log(db, action="authorization_decision", actor=user.name, case_id=case.id,
             transaction_id=txn.id, details={"decision": "APPROVE", "bank": bank})
         log(db, action="payment_settled_simulated", actor="system", case_id=case.id,
-            transaction_id=txn.id, details={"bank": bank, "note": "No real money moved"})
+            transaction_id=txn.id, details={"bank": bank, "credited": credited,
+                                            "balance": acct.balance if acct else None,
+                                            "note": "No real money moved"})
     elif decision == "ESCALATE":
         txn.status, txn.decision = "ESCALATED", "ESCALATE"
         case.status, case.decision, case.resolution = "ESCALATED", "ESCALATE", "escalated"

@@ -6,7 +6,7 @@ import OpsDashboard from './pages/OpsDashboard';
 import CaseDetailPage from './pages/CaseDetailPage';
 import LoginPage from './pages/LoginPage';
 import BankDashboard from './pages/BankDashboard';
-import { API_BASE, api, getSession, getUserId, logout } from './api';
+import { API_BASE, api, getSession, getUserId, logout, setIds } from './api';
 
 interface Health {
   status: string;
@@ -24,12 +24,19 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   return children;
 }
 
+function RequireOfficer({ children }: { children: JSX.Element }) {
+  if (!getUserId()) return <Navigate to="/login" replace />;
+  if (getSession().role !== 'officer') return <Navigate to="/" replace />;
+  return children;
+}
+
 export default function App() {
   const loc = useLocation();
   const nav = useNavigate();
   const [health, setHealth] = useState<Health | null>(null);
   const [offline, setOffline] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
+  const [ready, setReady] = useState(false);
   const session = getSession();
   const loggedIn = Boolean(getUserId());
 
@@ -44,6 +51,14 @@ export default function App() {
         setHealth(null);
         setOffline(true);
       });
+    // Demo rule: a full page refresh restarts the whole process (fresh ₦250k
+    // balance, no cases). SPA navigation is untouched — only true reloads reset.
+    const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    if (navEntry?.type === 'reload' && getUserId()) {
+      api.reset('A').then((r) => setIds(r.customer_id, r.officer_id)).catch(() => {}).finally(() => setReady(true));
+    } else {
+      setReady(true);
+    }
   }, []);
 
   const isOfficer = session.role === 'officer';
@@ -51,13 +66,11 @@ export default function App() {
     ? [{ to: '/ops', label: 'Ops', icon: Activity }]
     : [
         { to: '/', label: 'Bank', icon: LayoutDashboard },
-        { to: '/verify', label: 'Verify', icon: ShieldHalf },
-        { to: '/ops?ops=1', label: 'Ops view', icon: Activity }
+        { to: '/verify', label: 'Verify', icon: ShieldHalf }
       ];
 
-  const isOps = loc.pathname.startsWith('/ops');
   const isVerify = loc.pathname.startsWith('/verify') || loc.pathname.startsWith('/cases');
-  const activeIndex = isOfficer ? 0 : isOps ? 2 : isVerify ? 1 : 0;
+  const activeIndex = isOfficer ? 0 : isVerify ? 1 : 0;
   const indicatorIndex = hover ?? activeIndex;
   const online = Boolean(health) && !offline;
 
@@ -157,13 +170,17 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
+        {!ready ? (
+          <p className="py-10 text-center text-sm text-slate-400">Restarting demo…</p>
+        ) : (
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<RequireAuth><BankDashboard /></RequireAuth>} />
           <Route path="/verify/:txnId?" element={<RequireAuth><CustomerDashboard /></RequireAuth>} />
-          <Route path="/ops" element={<RequireAuth><OpsDashboard /></RequireAuth>} />
+          <Route path="/ops" element={<RequireOfficer><OpsDashboard /></RequireOfficer>} />
           <Route path="/cases/:id" element={<RequireAuth><CaseDetailPage /></RequireAuth>} />
         </Routes>
+        )}
       </main>
     </div>
   );
