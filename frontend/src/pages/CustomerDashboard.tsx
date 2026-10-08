@@ -21,7 +21,7 @@ export default function CustomerDashboard() {
   const [identityDone, setIdentityDone] = useState(false);
   const [purpose, setPurpose] = useState('Debt repayment');
   const [beneficiary, setBeneficiary] = useState('John Doe');
-  const [decision, setDecision] = useState<{ decision: string; reason: string } | null>(null);
+  const [decision, setDecision] = useState<{ decision: string; reason: string; caseStatus?: string } | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -120,7 +120,7 @@ export default function CustomerDashboard() {
     const r = await run(() => api.authorize(txn.id));
     if (!r) return;
     setRisk(r.risk);
-    setDecision({ decision: r.decision, reason: r.reason });
+    setDecision({ decision: r.decision, reason: r.reason, caseStatus: r.case_status });
     setStep('decided');
     const g = await api.getTxn(txn.id).catch(() => null);
     if (g) setTxn(g.transaction);
@@ -300,17 +300,21 @@ export default function CustomerDashboard() {
 
           <div className="flex flex-wrap gap-2 pt-1">
             <button disabled={busy} onClick={authorize} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-              <BadgeCheck size={16} /> Authorize / Approve
+              <BadgeCheck size={16} /> Confirm & submit to bank
             </button>
             <button disabled={busy} onClick={escalate} className="rounded-xl border border-orange-300 px-4 py-2 text-sm font-semibold text-orange-700">
-              Escalate to officer
+              Request officer review
             </button>
           </div>
+          <p className="-mt-2 text-xs text-slate-400">Your confirmation submits the case for a bank decision — final authorization always rests with the bank, never the customer.</p>
 
           {step === 'decided' && decision && (
             <div className="rounded-xl border border-slate-200 bg-mist p-4 text-sm">
-              <b>Outcome: {decision.decision}</b>
+              <b>Bank decision: {decision.decision}</b>
               <p className="text-slate-600">{decision.reason}</p>
+              {decision.decision === 'APPROVE' && decision.caseStatus === 'awaiting_officer' && (
+                <p className="mt-1 font-semibold text-amber-700">Pending final confirmation by a bank officer in the Ops dashboard.</p>
+              )}
               <p className="mt-1 text-slate-500">Authorization simulated — no money moved. Track progress under Case #{caseId} or in Ops.</p>
             </div>
           )}

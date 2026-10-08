@@ -89,8 +89,9 @@ export default function CaseDetailPage() {
         </div>
       </div>
 
+      {asOfficer ? (
       <div className="rounded-2xl border bg-white p-4">
-        <h2 className="font-semibold">Officer actions {asOfficer ? '' : '(officer role enforced server-side)'}</h2>
+        <h2 className="font-semibold">Officer actions</h2>
         <div className="mt-2 flex flex-wrap gap-2">
           {(['APPROVE', 'ESCALATE', 'BLOCK'] as const).map((d) => (
             <button
@@ -106,6 +107,12 @@ export default function CaseDetailPage() {
         </div>
         {allowed.length === 0 && <p className="mt-1 text-xs text-slate-400">No actions available in status {c.status}.</p>}
       </div>
+      ) : (
+      <div className="rounded-2xl border bg-white p-4 text-sm text-slate-500">
+        Bank decision: <b className="text-slate-700">{c.decision}</b> · status {c.status}.
+        Approval, escalation and blocking are decided by bank officers in the Ops dashboard — never by the customer.
+      </div>
+      )}
 
       <div className="rounded-2xl border bg-white p-4">
         <h2 className="font-semibold">Audit timeline</h2>

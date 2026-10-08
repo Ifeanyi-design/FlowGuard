@@ -186,3 +186,14 @@
 - Commands: `pytest -q` → 14 passed; `npm run typecheck` → pass on retry (first attempt: Node OOM from disk
   pressure, transient — no code change between attempts).
 - Remaining: submit.
+
+---
+
+## 2026-10-08T02:35:00Z — Phase 12: Push to GitHub
+
+- Objective: Push to https://github.com/Strikertee/FlowGuard.
+- Commands: `git init -b main; git add -A; git commit` (43 files); `git push -u origin main`.
+- Problems: push failed first — TCP to github.com:443 fine but git/OpenSSL TLS handshake stalled; repo confirmed
+  to exist via GitHub API (curl ok). Resolved repo-locally: `git config http.sslBackend schannel` → push succeeded,
+  `main -> main`, tracking set.
+- Remaining: Render Blueprint deploy + env vars + smoke test (dashboard-side, cannot be done from here).
