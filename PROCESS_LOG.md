@@ -265,3 +265,19 @@
   AGENTS.md rule 2, README narration.
 - Commands: `pytest -q` → 15 passed; `npm run typecheck` → pass.
 - Remaining: commit + push + Render deploy + smoke test.
+
+---
+
+## 2026-10-08T03:20:00Z — Phase 17: Collaborator UI rework review (Ifeanyi-design)
+
+- Objective: User pulled collaborator updates (405d45f design shots/memory, 50e523f Bank+Verify UI restyle,
+  3f739cf Ops/CaseDetail restyle). Merge fast-forwarded cleanly to 3f739cf — no conflicts.
+- Review findings: rework was based on latest contracts (biometric/identity/recommendation intact) BUT regressed
+  the bank-only-authority framing in 4 spots: verify outcome showed "Bank decision: APPROVE", submit button
+  reverted to "Confirm & submit to bank", ops table + case header showed raw recommendation as bank decision,
+  dashboard View-case still keyed on obsolete AUTHORIZED status.
+- Fix: restored SUBMITTED + assessment wording, recommendation-vs-bank-decision labels (ops table, case header,
+  customer note), case_status-based View-case gating. Their new theme/components untouched.
+- Commands: `pytest -q` → 15 passed (backend untouched by rework); `npm run typecheck` → pass;
+  `npm run build` → pass (17s, 248KB JS).
+- Remaining: commit + push + Render deploy + smoke test.
