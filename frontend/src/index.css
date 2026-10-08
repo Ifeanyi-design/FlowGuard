@@ -2,8 +2,129 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background: #f3f5f9;
-  color: #0f1b2d;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: #030712;
+    color: #e5e7eb;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Ambient radial glow field behind the whole app */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(620px 320px at 10% -6%, rgba(34, 211, 238, 0.1), transparent 70%),
+      radial-gradient(700px 360px at 92% -4%, rgba(52, 211, 153, 0.07), transparent 70%),
+      radial-gradient(900px 520px at 50% 112%, rgba(59, 130, 246, 0.07), transparent 72%);
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  ::selection {
+    background: rgba(34, 211, 238, 0.28);
+    color: #ffffff;
+  }
+
+  /* Native controls pick up the dark scheme */
+  select option {
+    background-color: #0b0f19;
+    color: #e5e7eb;
+  }
+
+  *:focus-visible {
+    outline: 2px solid rgba(34, 211, 238, 0.7);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Hairline dark grid card with a subtle inner radial glow painted behind content */
+  .fg-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid #1f2937;
+    background-color: rgba(9, 13, 24, 0.82);
+    background-image:
+      radial-gradient(460px 190px at 50% -12%, rgba(34, 211, 238, 0.1), transparent 62%),
+      linear-gradient(180deg, rgba(19, 28, 49, 0.72) 0%, rgba(9, 13, 24, 0.82) 100%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+      0 24px 48px -30px rgba(0, 0, 0, 0.95);
+  }
+
+  /* Glass surface for navbar / floating panels */
+  .fg-glass {
+    background: rgba(9, 13, 24, 0.68);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+  }
+
+  /* Razor-thin, slightly reflective dark border used on inputs */
+  .fg-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(3, 7, 18, 0.6);
+    padding: 0.6rem 0.75rem;
+    color: #e5e7eb;
+    transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  }
+
+  .fg-input::placeholder {
+    color: #475569;
+  }
+
+  .fg-input:hover {
+    border-color: rgba(148, 163, 184, 0.32);
+  }
+
+  .fg-input:focus {
+    outline: none;
+    border-color: rgba(34, 211, 238, 0.55);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+    background: rgba(3, 7, 18, 0.8);
+  }
+}
+
+@layer utilities {
+  .fg-grid-lines {
+    background-image:
+      linear-gradient(rgba(31, 41, 55, 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31, 41, 55, 0.35) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .fg-thin-scroll::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+
+  .fg-thin-scroll::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.4);
+  }
+
+  .fg-thin-scroll::-webkit-scrollbar-thumb {
+    background: #26344b;
+    border-radius: 999px;
+  }
+
+  .fg-thin-scroll::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+  }
 }
