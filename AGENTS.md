@@ -12,12 +12,14 @@ Primary demo journey: `Faith → Treasure ₦4,000,000` (8× normal history of �
 
 Critical product rules:
 1. Not a PND bypass system. Bank remains final authority.
-2. Incoming verification never auto-authorizes outgoing transactions.
-3. No single signal authorizes a high-value transaction.
-4. Risk scoring is explainable. AI/risk never directly controls funds: Risk Engine → Policy Engine → Final Decision → Mock Bank Adapter.
-5. Never process real money. Regulatory/critical restrictions always enforceable (HOLD wins).
-6. Core ledger (mock) is source of truth. Convenience increases only as risk reduces.
-7. Fail-safe: if risk services fail, NEVER auto-approve — controlled HOLD/error state.
+2. The customer provides evidence only: authorize = SUBMITTED for bank review, never an approval.
+   Only the officer decision can APPROVE/SETTLE/BLOCK; the mock ledger is touched solely by officer approval.
+3. Incoming verification never auto-authorizes outgoing transactions.
+4. No single signal authorizes a high-value transaction.
+5. Risk scoring is explainable. AI/risk never directly controls funds: Risk Engine → Policy Engine → Final Decision → Mock Bank Adapter.
+6. Never process real money. Regulatory/critical restrictions always enforceable (HOLD wins).
+7. Core ledger (mock) is source of truth. Convenience increases only as risk reduces.
+8. Fail-safe: if risk services fail, NEVER auto-approve — controlled HOLD/error state.
 
 ## 2. Architecture
 

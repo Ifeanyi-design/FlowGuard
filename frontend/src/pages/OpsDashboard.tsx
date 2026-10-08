@@ -76,7 +76,7 @@ export default function OpsDashboard() {
                 <td className="p-3">{r.transaction.sender_name}</td>
                 <td className="p-3">{r.transaction.beneficiary_name || '—'}</td>
                 <td className="p-3">{r.case.status}</td>
-                <td className="p-3">{r.case.decision}</td>
+                <td className="p-3">{r.case.resolution ? `${r.case.decision} (bank)` : `${r.case.decision} (FlowGuard rec.)`}</td>
               </tr>
             ))}
             {rows.length === 0 && (

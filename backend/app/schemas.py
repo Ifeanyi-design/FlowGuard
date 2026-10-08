@@ -46,6 +46,7 @@ class CaseOut(BaseModel):
     risk_level: str
     verification_state: str
     decision: str
+    resolution: str | None = None
     scenario: str
 
     model_config = {"from_attributes": True}
@@ -93,6 +94,7 @@ class ResetRequest(BaseModel):
 
 class DecisionOut(BaseModel):
     decision: str
+    recommendation: str = "PENDING"
     reason: str
     risk: RiskResult
     transaction: TransactionOut

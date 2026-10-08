@@ -75,9 +75,11 @@ No passwords (demo headers). `POST /api/demo/reset` returns `customer_id` (Treas
 
 Main flow (bank app): login (`treasure@demo.bank` / PIN `1234`) → dashboard with balance, airtime/data/bills,
 last-3 history → **Enhanced protection** banner on unusual inflow → Verify payment → demo OTP identity → sender
-confirm/deny → purpose → beneficiary → reassess → mock Face ID/fingerprint → submit to bank → officer
-APPROVE/ESCALATE/BLOCK in Ops (approval settles simulated). Identity, biometric and bank gates are enforced
-server-side (409/422/403); deny keeps disputed transactions contained.
+confirm/deny → purpose → beneficiary → reassess → mock Face ID/fingerprint → **submit for bank review**
+(FlowGuard records only a recommendation) → officer APPROVE (authorizes + executes simulated settlement) /
+STEP-UP / ESCALATE / BLOCK in Ops. Identity, biometric and bank gates are enforced server-side (409/422/403);
+deny keeps disputed transactions contained. Governing principle (see PRD.md): the customer provides evidence,
+FlowGuard assesses risk, the bank alone authorizes.
 
 Transaction states (PRD §10): CREATED → UNDER_REVIEW → CUSTOMER_VERIFIED → BENEFICIARY_SUBMITTED → RISK_REASSESSED → AUTHORIZED → SETTLED (simulated), with STEP_UP_REQUIRED / ESCALATED / BLOCKED branches. Cases carry status + resolution; audit covers received → risk → verified → purpose → beneficiary → reassessed → step-up → decision → settlement. Ops tab → open case → APPROVE/ESCALATE/BLOCK (officer-only, state-gated) → audit timeline.
 

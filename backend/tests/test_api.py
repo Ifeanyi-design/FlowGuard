@@ -54,8 +54,11 @@ def test_full_demo_flow():
 
     r = client.post(f"/api/transactions/{txn_id}/authorize", headers=h)
     assert r.status_code == 200, r.text
-    assert r.json()["decision"] in ("APPROVE", "STEP_UP", "HOLD", "ESCALATE", "BLOCK")
-    assert r.json()["transaction"]["status"] == "AUTHORIZED"
+    # The customer only REQUESTS review: FlowGuard records a recommendation,
+    # the case waits for the bank, and nothing is authorized yet.
+    assert r.json()["decision"] == "SUBMITTED"
+    assert r.json()["recommendation"] == "APPROVE"
+    assert r.json()["transaction"]["status"] == "RISK_REASSESSED"
     assert r.json()["case_status"] == "AWAITING_OFFICER"
 
     # Idempotent replay
@@ -69,7 +72,7 @@ def test_full_demo_flow():
     actions = [a["action"] for a in audit]
     for expected in ("transaction_received", "risk_triggered", "identity_verified",
                      "customer_verified", "purpose_selected", "beneficiary_submitted",
-                     "risk_reassessed", "biometric_verified", "authorization_decision"):
+                     "risk_reassessed", "biometric_verified", "review_requested"):
         assert expected in actions, f"missing {expected} in {actions}"
 
     # Bank confirmation settles (simulated) an authorized payment.
@@ -80,6 +83,7 @@ def test_full_demo_flow():
     assert off.json()["status"] == "SETTLED"
     audit2 = client.get(f"/api/cases/{case_id}/audit", headers=h).json()["audit"]
     assert "payment_settled_simulated" in [a["action"] for a in audit2]
+    assert "authorization_decision" in [a["action"] for a in audit2]
 
 
 def test_block_requires_officer():

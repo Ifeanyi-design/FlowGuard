@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from .. import policy_engine, risk_engine
 from ..audit import log
-from ..bank_adapter import get_adapter
 from ..database import get_db
 from ..models import Account, Beneficiary, Case, RiskEvent, Transaction, User
 from ..schemas import (
@@ -399,13 +398,19 @@ def biometric(txn_id: int, body: BiometricRequest, db: Session = Depends(get_db)
 
 
 def _finalize_authorize(db: Session, txn: Transaction, case: Case, user: User) -> dict:
-    # PRD §10 states. HOLD keeps the transaction contained UNDER_REVIEW.
-    status_map = {"APPROVE": "AUTHORIZED", "STEP_UP": "STEP_UP_REQUIRED", "HOLD": "UNDER_REVIEW",
-                  "ESCALATE": "ESCALATED", "BLOCK": "BLOCKED"}
-    if txn.decision in ("APPROVE", "BLOCK") and txn.status in ("AUTHORIZED", "SETTLED", "BLOCKED"):
+    """Request bank review. NEVER authorizes the movement of funds.
+
+    Governing principle: the customer provides evidence and context,
+    FlowGuard assesses the risk, the bank retains final authority.
+    This endpoint runs the risk + policy engines to record FlowGuard's
+    RECOMMENDATION and routes the case to the officer (AWAITING_OFFICER).
+    Only the officer decision endpoint can approve/authorize/settle/block.
+    """
+    if case.status in ("AWAITING_OFFICER", "AUTHORIZED", "SETTLED", "BLOCKED", "ESCALATED"):
         result = {"score": txn.risk_score, "level": txn.risk_level, "factors": [],
                   "recommended_action": txn.decision}
-        return {"decision": txn.decision, "reason": "Idempotent replay — already decided.",
+        return {"decision": "SUBMITTED", "recommendation": case.decision,
+                "reason": "Already submitted — awaiting bank decision.",
                 "risk": result, "transaction": TransactionOut.model_validate(txn).model_dump(),
                 "case_status": case.status, "bank": {}}
     if not (txn.sender_confirmed and txn.purpose and txn.beneficiary_name and txn.reassessed
@@ -431,26 +436,22 @@ def _finalize_authorize(db: Session, txn: Transaction, case: Case, user: User) -
     except Exception as exc:
         result = {"score": 100, "level": "CRITICAL", "factors": [], "recommended_action": "ESCALATE"}
         policy = policy_engine.failsafe(str(exc))
-    bank = get_adapter().authorize(f"TXN-{txn.id}", txn.amount, policy["decision"])
+    # NOTE: no bank-adapter call here — the mock ledger is only touched by the
+    # officer's approval. Customer evidence alone never moves (or authorizes) funds.
     txn.risk_score, txn.risk_level, txn.decision = result["score"], result["level"], policy["decision"]
-    txn.status = status_map[policy["decision"]]
+    txn.status = "UNDER_REVIEW" if policy["decision"] == "HOLD" else "RISK_REASSESSED"
     case.risk_score, case.risk_level, case.decision = result["score"], result["level"], policy["decision"]
-    if policy["decision"] == "APPROVE" and user.role == "customer":
-        # Customer authorization of a HIGH+ decision still needs the bank/officer —
-        # keep case open for officer confirmation (bank is final authority).
-        case.status = "AWAITING_OFFICER"
-    else:
-        case.status = txn.status
-    if policy["decision"] in ("ESCALATE", "BLOCK"):
-        case.resolution = policy["decision"].lower()
-    log(db, action="authorization_decision", actor=user.name, case_id=case.id,
-        transaction_id=txn.id, details={"decision": policy["decision"],
-                                        "reason": policy["reason"], "bank": bank})
+    case.status = "AWAITING_OFFICER"
+    log(db, action="review_requested", actor=user.name, case_id=case.id,
+        transaction_id=txn.id, details={"recommendation": policy["decision"],
+                                        "reason": policy["reason"]})
     db.commit()
     db.refresh(txn)
-    return {"decision": policy["decision"], "reason": policy["reason"], "risk": result,
+    return {"decision": "SUBMITTED", "recommendation": policy["decision"],
+            "reason": f"Submitted for bank review. FlowGuard assessment: {policy['decision']} — {policy['reason']}",
+            "risk": result,
             "transaction": TransactionOut.model_validate(txn).model_dump(),
-            "case_status": case.status, "bank": bank}
+            "case_status": case.status, "bank": {}}
 
 
 @router.post("/{txn_id}/authorize", response_model=DecisionOut)

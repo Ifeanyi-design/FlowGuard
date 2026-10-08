@@ -249,3 +249,19 @@
 - Follow-up (pushed 7d530bb): user-specified layout — suspicious inflow nests under the Enhanced Protection
   header with a button labeled exactly "Verify" → /verify/:id; empty state offers one-click ₦4m simulation.
 - Remaining: commit + push + Render deploy + smoke test.
+
+---
+
+## 2026-10-08T03:10:00Z — Phase 16: Bank-only authorization (governing principle enforced)
+
+- Objective: User correction — customer evidence must never authorize funds. The customer authorize endpoint
+  could still return APPROVE/AUTHORIZED. Restructured: POST /authorize now always returns SUBMITTED, records
+  FlowGuard's recommendation (case/transaction decision), routes to AWAITING_OFFICER, logs review_requested,
+  and never touches the mock ledger. Only officer-decision APPROVEs (authorizes + executes simulated
+  settlement, audits authorization_decision). HOLD recommendation keeps UNDER_REVIEW containment.
+- Change: schemas (DecisionOut.recommendation, CaseOut.resolution), transactions._finalize_authorize rewrite,
+  cases.officerDecision always settle-on-approve, dashboard pending carries case_status/recommendation,
+  UI shows SUBMITTED + assessment / recommendation-vs-bank-decision labels, new PRD.md (governing spec),
+  AGENTS.md rule 2, README narration.
+- Commands: `pytest -q` → 15 passed; `npm run typecheck` → pass.
+- Remaining: commit + push + Render deploy + smoke test.

@@ -105,22 +105,19 @@ def officer_decision(case_id: int, body: dict, db: Session = Depends(get_db),
         raise HTTPException(status_code=422, detail="decision must be APPROVE|ESCALATE|BLOCK")
     txn = db.query(Transaction).filter(Transaction.id == case.transaction_id).first()
     if decision == "APPROVE":
-        if txn.status == "AUTHORIZED":
-            # Bank confirms an authorized payment: settlement is SIMULATED only.
-            from ..bank_adapter import get_adapter
+        # ONLY the bank can approve: authorizing executes the (simulated) settlement.
+        # Customer evidence and FlowGuard's recommendation never touch the ledger.
+        from ..bank_adapter import get_adapter
 
-            bank = get_adapter().authorize(f"TXN-{txn.id}", txn.amount, "APPROVE")
-            txn.status, txn.decision = "SETTLED", "APPROVE"
-            case.status, case.decision, case.resolution = "SETTLED", "APPROVE", "approved_settled"
-            log(db, action="officer_approve", actor=user.name, case_id=case.id,
-                transaction_id=txn.id, details={"decision": decision})
-            log(db, action="payment_settled_simulated", actor="system", case_id=case.id,
-                transaction_id=txn.id, details={"bank": bank, "note": "No real money moved"})
-        else:
-            txn.status, txn.decision = "AUTHORIZED", "APPROVE"
-            case.status, case.decision, case.resolution = "AUTHORIZED", "APPROVE", "approved"
-            log(db, action="officer_approve", actor=user.name, case_id=case.id,
-                transaction_id=txn.id, details={"decision": decision})
+        bank = get_adapter().authorize(f"TXN-{txn.id}", txn.amount, "APPROVE")
+        txn.status, txn.decision = "SETTLED", "APPROVE"
+        case.status, case.decision, case.resolution = "SETTLED", "APPROVE", "approved_settled"
+        log(db, action="officer_approve", actor=user.name, case_id=case.id,
+            transaction_id=txn.id, details={"decision": decision})
+        log(db, action="authorization_decision", actor=user.name, case_id=case.id,
+            transaction_id=txn.id, details={"decision": "APPROVE", "bank": bank})
+        log(db, action="payment_settled_simulated", actor="system", case_id=case.id,
+            transaction_id=txn.id, details={"bank": bank, "note": "No real money moved"})
     elif decision == "ESCALATE":
         txn.status, txn.decision = "ESCALATED", "ESCALATE"
         case.status, case.decision, case.resolution = "ESCALATED", "ESCALATE", "escalated"

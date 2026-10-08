@@ -49,7 +49,9 @@ def dashboard(db: Session = Depends(get_db),
         case = db.query(Case).filter(Case.transaction_id == pend.id).first()
         pending = {"transaction": TransactionOut.model_validate(pend).model_dump(),
                    "risk": {"score": pend.risk_score, "level": pend.risk_level},
-                   "case_id": case.id if case else None}
+                   "case_id": case.id if case else None,
+                   "case_status": case.status if case else None,
+                   "recommendation": case.decision if case else None}
     return {
         "user": {"id": user.id, "name": user.name},
         "account": {"id": acct.id, "number_masked": mask_account(acct.account_number),

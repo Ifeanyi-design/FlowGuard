@@ -128,7 +128,7 @@ export default function BankDashboard() {
                 From {pending.transaction.sender_name} · {pending.risk.level} risk ({pending.risk.score}) ·{' '}
                 {pending.transaction.status.replace(/_/g, ' ')}
               </p>
-              {pending.transaction.status === 'AUTHORIZED' ? (
+              {pending.transaction.status === 'AUTHORIZED' || pending.case_status === 'AWAITING_OFFICER' ? (
                 <Link to={`/cases/${pending.case_id}`} className="mt-3 inline-block rounded-xl bg-ink px-4 py-2 font-semibold text-white">View case</Link>
               ) : (
                 <button onClick={() => nav(`/verify/${pending.transaction.id}`)} className="mt-3 rounded-xl bg-ink px-4 py-2 font-semibold text-white">

@@ -57,7 +57,7 @@ export default function CaseDetailPage() {
           <h1 className="text-xl font-bold">Case #{c.id} · {naira(t.amount)} from {t.sender_name}</h1>
           <RiskBadge risk={risk} size="sm" />
         </div>
-        <p className="mt-1 text-sm text-slate-300">Status {c.status} · decision {c.decision} · scenario {c.scenario} · {t.status}</p>
+        <p className="mt-1 text-sm text-slate-300">Status {c.status} · FlowGuard recommendation {c.decision} · Bank decision {c.resolution ?? 'pending'} · scenario {c.scenario}</p>
         <div className="mt-2"><ScoreBar score={risk.score} /></div>
       </div>
 
@@ -123,7 +123,8 @@ export default function CaseDetailPage() {
       </div>
       ) : (
       <div className="rounded-2xl border bg-white p-4 text-sm text-slate-500">
-        Bank decision: <b className="text-slate-700">{c.decision}</b> · status {c.status}.
+        FlowGuard recommendation: <b className="text-slate-700">{c.decision}</b> · Bank decision:{' '}
+        <b className="text-slate-700">{c.resolution ?? 'pending'}</b> · status {c.status}.
         Approval, escalation and blocking are decided by bank officers in the Ops dashboard — never by the customer.
       </div>
       )}

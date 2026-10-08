@@ -29,7 +29,7 @@ export default function CustomerDashboard() {
   const [history, setHistory] = useState<{ case: CaseItem; transaction: Transaction }[]>([]);
   const [purpose, setPurpose] = useState('Debt repayment');
   const [beneficiary, setBeneficiary] = useState('John Doe');
-  const [decision, setDecision] = useState<{ decision: string; reason: string; caseStatus?: string } | null>(null);
+  const [decision, setDecision] = useState<{ decision: string; recommendation?: string; reason: string; caseStatus?: string } | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -183,7 +183,7 @@ export default function CustomerDashboard() {
     const r = await run(() => api.authorize(txn.id));
     if (!r) return;
     setRisk(r.risk);
-    setDecision({ decision: r.decision, reason: r.reason, caseStatus: r.case_status });
+    setDecision({ decision: r.decision, recommendation: r.recommendation, reason: r.reason, caseStatus: r.case_status });
     setStep('decided');
     const g = await api.getTxn(txn.id).catch(() => null);
     if (g) setTxn(g.transaction);
@@ -405,7 +405,7 @@ export default function CustomerDashboard() {
                   { label: 'Beneficiary screening', st: risk.factors.some((f) => f.signal === 'beneficiary_risk' || f.signal === 'new_beneficiary') ? 'flag' as const : risk.factors.some((f) => f.signal === 'known_beneficiary') ? 'ok' as const : 'pending' as const },
                   { label: 'Customer identity (one-time code)', st: identityDone ? 'ok' as const : 'pending' as const },
                   { label: 'Biometric (Face ID / fingerprint)', st: bioDone ? 'ok' as const : 'pending' as const },
-                  { label: 'Bank review', st: step === 'decided' ? 'ok' as const : 'pending' as const }
+                  { label: 'Submitted for bank review', st: step === 'decided' ? 'ok' as const : 'pending' as const }
                 ].map((c) => (
                   <li key={c.label} className="flex items-center gap-2">
                     {c.st === 'ok' && <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />}
@@ -443,13 +443,13 @@ export default function CustomerDashboard() {
 
           <div className="flex flex-wrap gap-2 pt-1">
             <button disabled={busy || !bioDone} onClick={authorize} title={!bioDone ? 'Complete biometric verification first' : undefined} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-              <BadgeCheck size={16} /> Confirm & submit to bank
+              <BadgeCheck size={16} /> Submit for bank review
             </button>
             <button disabled={busy} onClick={escalate} className="rounded-xl border border-orange-300 px-4 py-2 text-sm font-semibold text-orange-700">
               Request officer review
             </button>
           </div>
-          <p className="-mt-2 text-xs text-slate-400">Your confirmation submits the case for a bank decision — final authorization always rests with the bank, never the customer.</p>
+          <p className="-mt-2 text-xs text-slate-400">Your evidence goes to a bank officer for the final decision — customers never authorize fund movement.</p>
 
           {!bioDone && (step === 'reassessed' || step === 'decided') && (
             <p className="-mt-2 text-xs text-slate-400">Complete biometric verification above to unlock submission — the backend enforces this order.</p>
@@ -469,10 +469,10 @@ export default function CustomerDashboard() {
 
           {step === 'decided' && decision && (
             <div className="rounded-xl border border-slate-200 bg-mist p-4 text-sm">
-              <b>Bank decision: {decision.decision}</b>
-              <p className="text-slate-600">{decision.reason}</p>
-              {decision.decision === 'APPROVE' && decision.caseStatus === 'AWAITING_OFFICER' && (
-                <p className="mt-1 font-semibold text-amber-700">Pending final confirmation by a bank officer in the Ops dashboard.</p>
+              <b>Submitted for bank review</b>
+              <p className="text-slate-600">FlowGuard assessment: {decision.recommendation ?? decision.decision} — {decision.reason}</p>
+              {decision.caseStatus === 'AWAITING_OFFICER' && (
+                <p className="mt-1 font-semibold text-amber-700">A bank officer now reviews the evidence and makes the final authorization decision in Ops.</p>
               )}
               <p className="mt-1 text-slate-500">Authorization simulated — no money moved. Track progress under Case #{caseId} or in Ops.</p>
             </div>

@@ -38,6 +38,7 @@ export interface CaseItem {
   risk_level: string;
   verification_state: string;
   decision: string;
+  resolution: string | null;
   scenario: string;
 }
 
@@ -78,6 +79,8 @@ export interface PendingTxn {
   transaction: Transaction;
   risk: { score: number; level: string };
   case_id: number | null;
+  case_status: string | null;
+  recommendation: string | null;
 }
 
 export interface DashboardData {

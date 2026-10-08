@@ -106,7 +106,7 @@ export const api = {
       body: JSON.stringify({ method })
     }),
   authorize: (id: number) =>
-    req<{ decision: string; reason: string; risk: import('./types').RiskResult; case_status: string; bank: Record<string, unknown> }>(
+    req<{ decision: string; recommendation: string; reason: string; risk: import('./types').RiskResult; case_status: string; bank: Record<string, unknown> }>(
       `/api/transactions/${id}/authorize`,
       { method: 'POST', body: '{}' }
     ),
