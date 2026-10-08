@@ -280,4 +280,9 @@
   customer note), case_status-based View-case gating. Their new theme/components untouched.
 - Commands: `pytest -q` → 15 passed (backend untouched by rework); `npm run typecheck` → pass;
   `npm run build` → pass (17s, 248KB JS).
+- Second wave (40ad8c6, 321ff3a): more design shots (fine) + accidentally committed backend/flowguard.db
+  (removed a .gitignore line to do it) + improved render.yaml (healthCheckPath, NODE_VERSION, fromService
+  auto-wiring for CORS_ORIGINS/VITE_API_URL, SPA rewrite /* → /index.html — the rewrite was missing and is
+  required for /login /ops /verify deep links). Kept render.yaml improvements; restored .gitignore and
+  untracked the DB (`git rm --cached`).
 - Remaining: commit + push + Render deploy + smoke test.
