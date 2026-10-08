@@ -50,7 +50,7 @@ def seed() -> dict:
         db.flush()
 
         account = Account(
-            user_id=customer.id, account_number="0123456789", balance=1_250_000, status="active",
+            user_id=customer.id, account_number="0123456789", balance=250_000, status="active",
             normal_transaction_limit=500_000,
         )
         db.add(account)
