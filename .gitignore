@@ -1,7 +1,6 @@
 __pycache__/
 *.pyc
 .venv/
-flowguard.db
 test_flowguard.db
 node_modules/
 dist/
