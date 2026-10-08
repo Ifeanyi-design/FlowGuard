@@ -30,6 +30,9 @@ def decide(risk: dict, ctx: dict) -> dict:
     if level == "MEDIUM":
         if ctx.get("sender_confirmed") and ctx.get("purpose") and ctx.get("beneficiary_name"):
             if ctx.get("reassessed"):
+                # PRD §3/§14: for medium risk the completed verification chain
+                # (identity + sender + purpose + beneficiary + reassessment) IS the
+                # step-up — no single signal authorized anything alone (PRD §8).
                 return {"decision": "APPROVE", "reason": "Verified expected transaction; residual risk acceptable."}
             return {"decision": "STEP_UP", "reason": "Awaiting risk reassessment before approval."}
         return {"decision": recommended, "reason": "Medium risk — complete verification to proceed."}

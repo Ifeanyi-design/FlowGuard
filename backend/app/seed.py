@@ -10,6 +10,28 @@ OFFICER = {"name": "Ops Officer", "email": "officer@demo.bank", "role": "officer
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_columns()
+
+
+def ensure_columns() -> None:
+    """Add PRD columns to pre-existing demo databases (create_all skips them)."""
+    from sqlalchemy import inspect, text
+
+    wanted = [
+        ("accounts", "normal_transaction_limit", "FLOAT DEFAULT 500000"),
+        ("beneficiaries", "bank", "VARCHAR(100) DEFAULT 'Demo Bank'"),
+        ("beneficiaries", "account_number_masked", "VARCHAR(20) DEFAULT '••••0000'"),
+        ("cases", "resolution", "VARCHAR(50)"),
+    ]
+    insp = inspect(engine)
+    existing_tables = set(insp.get_table_names())
+    for table, col, ddl in wanted:
+        if table not in existing_tables:
+            continue
+        names = {c["name"] for c in insp.get_columns(table)}
+        if col not in names:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
 
 
 def seed() -> dict:
@@ -28,7 +50,8 @@ def seed() -> dict:
         db.flush()
 
         account = Account(
-            user_id=customer.id, account_number="0123456789", balance=1_250_000, status="active"
+            user_id=customer.id, account_number="0123456789", balance=1_250_000, status="active",
+            normal_transaction_limit=500_000,
         )
         db.add(account)
         db.flush()

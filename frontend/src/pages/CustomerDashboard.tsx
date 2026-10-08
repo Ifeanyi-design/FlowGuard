@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, BadgeCheck, CheckCircle2, KeyRound, Landmark, ShieldCheck, UserCheck } from 'lucide-react';
 import { api, setIds } from '../api';
-import { PURPOSES, SCENARIO_CATALOGUE, type RiskResult, type Transaction } from '../types';
+import { PURPOSES, SCENARIO_CATALOGUE, type CaseItem, type RiskResult, type Transaction } from '../types';
 import { RiskBadge, ScoreBar, naira } from '../components/ui';
 
 type Step = 'idle' | 'alert' | 'verified' | 'reassessed' | 'decided';
@@ -19,6 +20,8 @@ export default function CustomerDashboard() {
   const [identityChannel, setIdentityChannel] = useState('');
   const [codeInput, setCodeInput] = useState('');
   const [identityDone, setIdentityDone] = useState(false);
+  const [disputed, setDisputed] = useState(false);
+  const [history, setHistory] = useState<{ case: CaseItem; transaction: Transaction }[]>([]);
   const [purpose, setPurpose] = useState('Debt repayment');
   const [beneficiary, setBeneficiary] = useState('John Doe');
   const [decision, setDecision] = useState<{ decision: string; reason: string; caseStatus?: string } | null>(null);
@@ -49,6 +52,7 @@ export default function CustomerDashboard() {
     const inc = await run(() => api.incoming(sender || 'Faith', amount, scenario));
     if (!inc) return;
     setTxn(inc.transaction);
+    loadHistory();
     setCaseId(inc.case_id);
     setRisk(inc.risk);
     setStep('alert');
@@ -57,6 +61,12 @@ export default function CustomerDashboard() {
     setIdentityChannel('');
     setCodeInput('');
     setIdentityDone(false);
+    setDisputed(false);
+  }
+
+  async function loadHistory() {
+    const r = await api.cases().catch(() => null);
+    if (r) setHistory(r.cases);
   }
 
   function syncIdentity(v?: string) {
@@ -122,6 +132,16 @@ export default function CustomerDashboard() {
     setRisk(r.risk);
     setDecision({ decision: r.decision, reason: r.reason, caseStatus: r.case_status });
     setStep('decided');
+    const g = await api.getTxn(txn.id).catch(() => null);
+    if (g) setTxn(g.transaction);
+    loadHistory();
+  }
+
+  async function deny() {
+    if (!txn) return;
+    const r = await run(() => api.verify(txn.id, false, false));
+    if (!r) return;
+    setDisputed(true);
     const g = await api.getTxn(txn.id).catch(() => null);
     if (g) setTxn(g.transaction);
   }
@@ -257,7 +277,16 @@ export default function CustomerDashboard() {
           <button disabled={busy || !identityDone} onClick={verify} title={!identityDone ? 'Complete the identity check first' : undefined} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
             <UserCheck size={16} /> Confirm sender
           </button>
+          <button disabled={busy || !identityDone} onClick={deny} title={!identityDone ? 'Complete the identity check first' : undefined} className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50">
+            I don't recognise this
+          </button>
           {!identityDone && <p className="-mt-2 text-xs text-slate-400">Complete the identity check above to unlock sender confirmation — the backend enforces this order.</p>}
+          {disputed && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <b>You marked this transaction as unrecognised.</b> It stays contained under review — nothing can
+              be authorized from a disputed transaction. If this wasn't you, request an officer review below.
+            </div>
+          )}
 
           <h2 className="font-semibold pt-2">3 · Purpose & beneficiary</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -286,14 +315,28 @@ export default function CustomerDashboard() {
                 <RiskBadge risk={risk} size="sm" />
               </div>
               <div className="mt-2"><ScoreBar score={risk.score} /></div>
-              <ul className="mt-3 space-y-1.5 text-sm">
-                {risk.factors.map((f) => (
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk drivers</p>
+              <ul className="mt-1 space-y-1.5 text-sm">
+                {risk.factors.filter((f) => f.points >= 0).map((f) => (
                   <li key={f.signal} className="flex justify-between gap-3 border-b border-slate-200 py-1 last:border-0">
                     <span>{f.explanation}</span>
-                    <b className={f.points >= 0 ? 'text-red-600' : 'text-emerald-600'}>{f.points > 0 ? `+${f.points}` : f.points}</b>
+                    <b className="text-red-600">+{f.points}</b>
                   </li>
                 ))}
               </ul>
+              {risk.factors.some((f) => f.points < 0) && (
+                <>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Mitigating</p>
+                  <ul className="mt-1 space-y-1.5 text-sm">
+                    {risk.factors.filter((f) => f.points < 0).map((f) => (
+                      <li key={f.signal} className="flex justify-between gap-3 border-b border-slate-200 py-1 last:border-0">
+                        <span>{f.explanation}</span>
+                        <b className="text-emerald-600">{f.points}</b>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
               {decision && <p className="mt-2 text-sm"><b>Suggested:</b> {decision.decision} — {decision.reason}</p>}
             </div>
           )}
@@ -312,12 +355,29 @@ export default function CustomerDashboard() {
             <div className="rounded-xl border border-slate-200 bg-mist p-4 text-sm">
               <b>Bank decision: {decision.decision}</b>
               <p className="text-slate-600">{decision.reason}</p>
-              {decision.decision === 'APPROVE' && decision.caseStatus === 'awaiting_officer' && (
+              {decision.decision === 'APPROVE' && decision.caseStatus === 'AWAITING_OFFICER' && (
                 <p className="mt-1 font-semibold text-amber-700">Pending final confirmation by a bank officer in the Ops dashboard.</p>
               )}
               <p className="mt-1 text-slate-500">Authorization simulated — no money moved. Track progress under Case #{caseId} or in Ops.</p>
             </div>
           )}
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="rounded-2xl border bg-white p-5">
+          <h2 className="font-semibold">Case history</h2>
+          <ul className="mt-2 divide-y divide-slate-100 text-sm">
+            {history.map((h) => (
+              <li key={h.case.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span>
+                  <Link className="font-semibold text-blue-700 underline" to={`/cases/${h.case.id}`}>Case #{h.case.id}</Link>
+                  <span className="ml-2 text-slate-500">{naira(h.transaction.amount)} · {h.transaction.sender_name} → {h.transaction.beneficiary_name || '—'}</span>
+                </span>
+                <span className="text-slate-500">{h.case.status} · {h.case.decision}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

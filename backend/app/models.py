@@ -34,6 +34,7 @@ class Account(Base):
     account_number: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String(20), default="active")
+    normal_transaction_limit: Mapped[float] = mapped_column(Float, default=500000.0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -51,7 +52,8 @@ class Transaction(Base):
     beneficiary_risk: Mapped[str] = mapped_column(String(20), default="low")
     purpose: Mapped[str] = mapped_column(String(100), default="")
     status: Mapped[str] = mapped_column(String(30), default="pending")
-    # pending | verified | awaiting_review | approved | held | escalated | blocked | step_up
+    # PRD §10: CREATED | UNDER_REVIEW | CUSTOMER_VERIFIED | BENEFICIARY_SUBMITTED
+    # | RISK_REASSESSED | STEP_UP_REQUIRED | AUTHORIZED | ESCALATED | BLOCKED | SETTLED
     risk_score: Mapped[int] = mapped_column(Integer, default=0)
     risk_level: Mapped[str] = mapped_column(String(20), default="LOW")
     decision: Mapped[str] = mapped_column(String(20), default="PENDING")
@@ -72,6 +74,8 @@ class Beneficiary(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    bank: Mapped[str] = mapped_column(String(100), default="Demo Bank")
+    account_number_masked: Mapped[str] = mapped_column(String(20), default="••••0000")
     risk_flag: Mapped[str] = mapped_column(String(20), default="low")
     trusted: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -90,6 +94,7 @@ class Case(Base):
     risk_level: Mapped[str] = mapped_column(String(20), default="LOW")
     verification_state: Mapped[str] = mapped_column(String(30), default="unverified")
     decision: Mapped[str] = mapped_column(String(20), default="PENDING")
+    resolution: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     scenario: Mapped[str] = mapped_column(String(5), default="A")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

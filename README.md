@@ -73,7 +73,9 @@ No passwords (demo headers). `POST /api/demo/reset` returns `customer_id` (Treas
 | D | Money mule (rapid outflows) | CRITICAL → escalate/block |
 | E | Account takeover (new device) | HIGH/CRITICAL → step-up/escalate |
 
-Main flow: Customer tab → scenario A → Simulate → demo OTP identity check → Confirm sender → Debt repayment → John Doe → Reassess → Authorize. Identity proof is enforced server-side: sender confirmation and authorization are rejected until it completes. Ops tab → open case → APPROVE/ESCALATE/BLOCK (officer-only, state-gated) → audit timeline.
+Main flow: Customer tab → scenario A → Simulate → demo OTP identity check → Confirm sender (or deny: disputed stays contained) → Debt repayment → John Doe → Reassess → Submit to bank. Identity proof is enforced server-side: sender confirmation and authorization are rejected until it completes. Officer APPROVE on an authorized case simulates settlement (SETTLED, no real money).
+
+Transaction states (PRD §10): CREATED → UNDER_REVIEW → CUSTOMER_VERIFIED → BENEFICIARY_SUBMITTED → RISK_REASSESSED → AUTHORIZED → SETTLED (simulated), with STEP_UP_REQUIRED / ESCALATED / BLOCKED branches. Cases carry status + resolution; audit covers received → risk → verified → purpose → beneficiary → reassessed → step-up → decision → settlement. Ops tab → open case → APPROVE/ESCALATE/BLOCK (officer-only, state-gated) → audit timeline.
 
 ## Limitations / prototype vs production
 

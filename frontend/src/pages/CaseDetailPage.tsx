@@ -77,15 +77,29 @@ export default function CaseDetailPage() {
         </div>
         <div className="rounded-2xl border bg-white p-4">
           <h2 className="font-semibold">Risk factors</h2>
-          <ul className="mt-2 space-y-1.5 text-sm">
-            {risk.factors.map((f) => (
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk drivers</p>
+          <ul className="mt-1 space-y-1.5 text-sm">
+            {risk.factors.filter((f) => f.points >= 0).map((f) => (
               <li key={f.signal} className="flex justify-between gap-2 border-b border-slate-100 py-1 last:border-0">
                 <span>{f.explanation}</span>
-                <b className={f.points >= 0 ? 'text-red-600' : 'text-emerald-600'}>{f.points > 0 ? `+${f.points}` : f.points}</b>
+                <b className="text-red-600">+{f.points}</b>
               </li>
             ))}
             {risk.factors.length === 0 && <li className="text-slate-400">No factor breakdown recorded.</li>}
           </ul>
+          {risk.factors.some((f) => f.points < 0) && (
+            <>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Mitigating</p>
+              <ul className="mt-1 space-y-1.5 text-sm">
+                {risk.factors.filter((f) => f.points < 0).map((f) => (
+                  <li key={f.signal} className="flex justify-between gap-2 border-b border-slate-100 py-1 last:border-0">
+                    <span>{f.explanation}</span>
+                    <b className="text-emerald-600">{f.points}</b>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       </div>
 

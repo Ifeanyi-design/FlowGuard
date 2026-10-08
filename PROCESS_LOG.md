@@ -211,3 +211,21 @@
   read-only bank-decision note. Committed f29946a, pushed to origin/main.
 - Commands: `npm run typecheck` → pass.
 - Remaining: Render deploy + smoke test.
+
+---
+
+## 2026-10-08T02:50:00Z — Phase 14: PRD fine-tune (states, deny, history, DB, audit)
+
+- Objective: User-supplied PRD demanded: §10 state vocabulary + simulated SETTLED; §5 confirm/deny + case history;
+  §11 columns (normal_transaction_limit, bank, masked numbers, resolution); §15 step-up/settlement audit lines;
+  §7 drivers/mitigating split.
+- Change (backend): transaction statuses now CREATED → UNDER_REVIEW → CUSTOMER_VERIFIED →
+  BENEFICIARY_SUBMITTED → RISK_REASSESSED → AUTHORIZED → SETTLED (officer APPROVE on AUTHORIZED simulates
+  settlement via MockBankAdapter; direct officer APPROVE authorizes), STEP_UP_REQUIRED / ESCALATED / BLOCKED
+  branches; case.resolution set on outcomes; deny keeps UNDER_REVIEW + sender_disputed; reassess logs
+  step_up_completed for elevated suggestions; risk limit read from account.normal_transaction_limit;
+  ensure_columns() backfills PRD columns on stale demo DBs. (frontend): deny button + disputed panel, customer
+  case-history card, AWAITING_OFFICER notice, drivers/mitigating split in both risk views.
+- Commands: `pytest -q` → 14 passed (new asserts: AUTHORIZED/AWAITING_OFFICER, officer APPROVE → SETTLED +
+  payment_settled_simulated, deny → UNDER_REVIEW/sender_disputed); `npm run typecheck` → pass.
+- Remaining: commit + push + Render deploy + smoke test.

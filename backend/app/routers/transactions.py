@@ -74,10 +74,11 @@ def scenario_flags(scenario: str) -> dict:
     return base
 
 
-def build_context(txn: Transaction, flags: dict, beneficiary_trusted: bool = False) -> dict:
+def build_context(txn: Transaction, flags: dict, beneficiary_trusted: bool = False,
+                    largest_history: float = 500_000) -> dict:
     return {
         "amount": txn.amount,
-        "largest_history": LARGEST_HISTORY,
+        "largest_history": largest_history,
         "is_new_beneficiary": bool(txn.beneficiary_name) and not beneficiary_trusted,
         "is_new_device": bool(txn.is_new_device),
         "is_rapid_outgoing": bool(txn.is_rapid),
@@ -138,7 +139,7 @@ def incoming(
         currency="NGN",
         sender_name=body.sender_name,
         sender_risk=flags["sender_risk"],
-        status="awaiting_review",
+        status="CREATED",
         device_id=device,
         is_new_device=is_new_device,
         is_rapid=1 if flags["is_rapid_outgoing"] else 0,
@@ -148,15 +149,17 @@ def incoming(
     db.flush()
 
     try:
-        result = risk_engine.assess(build_context(txn, flags))
+        result = risk_engine.assess(build_context(
+            txn, flags, largest_history=acct.normal_transaction_limit or LARGEST_HISTORY))
     except Exception as exc:  # fail-safe: never auto-approve
         result = {"score": 100, "level": "CRITICAL", "factors": [], "recommended_action": "ESCALATE"}
         log(db, action="risk_engine_failed", actor="system", transaction_id=txn.id,
             details={"error": str(exc)})
     txn.risk_score, txn.risk_level = result["score"], result["level"]
+    txn.status = "UNDER_REVIEW"
     case = Case(
         transaction_id=txn.id,
-        status="open",
+        status="OPEN",
         risk_score=result["score"],
         risk_level=result["level"],
         verification_state="unverified",
@@ -177,7 +180,7 @@ def incoming(
         "transaction": TransactionOut.model_validate(txn).model_dump(),
         "risk": result,
         "case_id": case.id,
-        "unusual": txn.amount >= LARGEST_HISTORY * 1.5,
+        "unusual": txn.amount >= (acct.normal_transaction_limit or LARGEST_HISTORY) * 1.5,
     }
 
 
@@ -246,7 +249,7 @@ def identity_confirm(txn_id: int, body: IdentityConfirmRequest, db: Session = De
         db.commit()
         raise HTTPException(status_code=422, detail="Incorrect code — check and try again")
     case.verification_state = "identity_verified"
-    case.status = "awaiting_customer"
+    case.status = "AWAITING_CUSTOMER"
     log(db, action="identity_verified", actor=user.name, case_id=case.id,
         transaction_id=txn.id, details={"method": "demo OTP"})
     db.commit()
@@ -264,10 +267,11 @@ def verify(txn_id: int, body: VerifyRequest, db: Session = Depends(get_db),
         raise HTTPException(status_code=409, detail="Complete the identity check first")
     txn.sender_confirmed = 1 if body.confirm_sender else 0
     if body.confirm_sender:
-        txn.status = "verified"
+        txn.status = "CUSTOMER_VERIFIED"
+        case.status = "AWAITING_CUSTOMER"
+    else:
+        txn.status = "UNDER_REVIEW"  # disputed — stays contained, never auto-authorizes
     case.verification_state = "sender_confirmed" if body.confirm_sender else "sender_disputed"
-    if body.confirm_sender:
-        case.status = "awaiting_customer"
     log(db, action="customer_verified" if body.confirm_sender else "sender_disputed",
         actor=user.name, case_id=case.id, transaction_id=txn.id,
         details={"confirm_sender": body.confirm_sender, "expected": body.expected})
@@ -315,6 +319,7 @@ def set_beneficiary(txn_id: int, body: BeneficiaryRequest, db: Session = Depends
     else:
         txn.beneficiary_risk = flags["beneficiary_risk"]
     txn.beneficiary_name = name
+    txn.status = "BENEFICIARY_SUBMITTED"
     if existing is None:
         db.add(Beneficiary(account_id=txn.account_id, name=name,
                             risk_flag=txn.beneficiary_risk, trusted=0))
@@ -329,15 +334,16 @@ def reassess(txn_id: int, db: Session = Depends(get_db),
              x_user_id: str | None = Header(default=None, alias="X-User-Id")):
     user = actor(db, x_user_id)
     txn = get_txn(db, txn_id)
-    require_owner(db, user, txn)
+    acct = require_owner(db, user, txn)
     case = get_case(db, txn_id)
     flags = scenario_flags(txn.scenario)
+    largest = acct.normal_transaction_limit or LARGEST_HISTORY
     trusted_ben = db.query(Beneficiary).filter(
         Beneficiary.account_id == txn.account_id,
         Beneficiary.name.ilike(txn.beneficiary_name or "__none__"),
         Beneficiary.trusted == 1).first() is not None
     try:
-        result = risk_engine.assess(build_context(txn, flags, trusted_ben))
+        result = risk_engine.assess(build_context(txn, flags, trusted_ben, largest))
         failed = False
     except Exception as exc:
         result = {"score": 100, "level": "CRITICAL", "factors": [], "recommended_action": "ESCALATE"}
@@ -351,21 +357,29 @@ def reassess(txn_id: int, db: Session = Depends(get_db),
          "beneficiary_name": txn.beneficiary_name, "reassessed": True},
     )
     txn.risk_score, txn.risk_level, txn.reassessed = result["score"], result["level"], 1
+    txn.status = "RISK_REASSESSED"
     case.risk_score, case.risk_level, case.decision = result["score"], result["level"], policy["decision"]
-    case.status = {"APPROVE": "awaiting_officer", "STEP_UP": "step_up",
-                   "HOLD": "held", "ESCALATE": "escalated", "BLOCK": "blocked"}[policy["decision"]]
+    case.status = "RISK_REASSESSED"
     db.add(RiskEvent(transaction_id=txn.id, case_id=case.id, score=result["score"],
                      level=result["level"], factors=result["factors"],
                      recommended_action=result["recommended_action"]))
     log(db, action="risk_reassessed", actor=user.name, case_id=case.id, transaction_id=txn.id,
         details={"score": result["score"], "level": result["level"],
                  "suggested": policy["decision"], "reason": policy["reason"]})
+    if policy["decision"] in ("STEP_UP", "HOLD", "ESCALATE"):
+        # The completed verification chain (identity + sender + purpose +
+        # beneficiary + reassessment) IS the step-up for elevated risk.
+        log(db, action="step_up_completed", actor=user.name, case_id=case.id,
+            transaction_id=txn.id, details={"suggested": policy["decision"]})
     db.commit()
     return {"risk": result, "suggested_decision": policy["decision"], "reason": policy["reason"]}
 
 
 def _finalize_authorize(db: Session, txn: Transaction, case: Case, user: User) -> dict:
-    if txn.decision in ("APPROVE", "BLOCK") and txn.status in ("approved", "blocked"):
+    # PRD §10 states. HOLD keeps the transaction contained UNDER_REVIEW.
+    status_map = {"APPROVE": "AUTHORIZED", "STEP_UP": "STEP_UP_REQUIRED", "HOLD": "UNDER_REVIEW",
+                  "ESCALATE": "ESCALATED", "BLOCK": "BLOCKED"}
+    if txn.decision in ("APPROVE", "BLOCK") and txn.status in ("AUTHORIZED", "SETTLED", "BLOCKED"):
         result = {"score": txn.risk_score, "level": txn.risk_level, "factors": [],
                   "recommended_action": txn.decision}
         return {"decision": txn.decision, "reason": "Idempotent replay — already decided.",
@@ -374,13 +388,15 @@ def _finalize_authorize(db: Session, txn: Transaction, case: Case, user: User) -
     if not (txn.sender_confirmed and txn.purpose and txn.beneficiary_name and txn.reassessed):
         raise HTTPException(status_code=409,
                             detail="Complete verification, purpose, beneficiary and reassessment first")
+    acct = require_owner(db, user, txn)
+    largest = acct.normal_transaction_limit or LARGEST_HISTORY
     flags = scenario_flags(txn.scenario)
     trusted_ben = db.query(Beneficiary).filter(
         Beneficiary.account_id == txn.account_id,
         Beneficiary.name.ilike(txn.beneficiary_name or "__none__"),
         Beneficiary.trusted == 1).first() is not None
     try:
-        result = risk_engine.assess(build_context(txn, flags, trusted_ben))
+        result = risk_engine.assess(build_context(txn, flags, trusted_ben, largest))
         policy = policy_engine.decide(
             result,
             {"regulatory_hold": bool(txn.regulatory_hold), "is_rapid_outgoing": bool(txn.is_rapid),
@@ -392,14 +408,16 @@ def _finalize_authorize(db: Session, txn: Transaction, case: Case, user: User) -
         policy = policy_engine.failsafe(str(exc))
     bank = get_adapter().authorize(f"TXN-{txn.id}", txn.amount, policy["decision"])
     txn.risk_score, txn.risk_level, txn.decision = result["score"], result["level"], policy["decision"]
-    txn.status = {"APPROVE": "approved", "STEP_UP": "step_up", "HOLD": "held",
-                  "ESCALATE": "escalated", "BLOCK": "blocked"}[policy["decision"]]
+    txn.status = status_map[policy["decision"]]
     case.risk_score, case.risk_level, case.decision = result["score"], result["level"], policy["decision"]
-    case.status = txn.status if txn.status != "approved" else "approved"
     if policy["decision"] == "APPROVE" and user.role == "customer":
         # Customer authorization of a HIGH+ decision still needs the bank/officer —
         # keep case open for officer confirmation (bank is final authority).
-        case.status = "awaiting_officer"
+        case.status = "AWAITING_OFFICER"
+    else:
+        case.status = txn.status
+    if policy["decision"] in ("ESCALATE", "BLOCK"):
+        case.resolution = policy["decision"].lower()
     log(db, action="authorization_decision", actor=user.name, case_id=case.id,
         transaction_id=txn.id, details={"decision": policy["decision"],
                                         "reason": policy["reason"], "bank": bank})
@@ -427,7 +445,8 @@ def escalate(txn_id: int, db: Session = Depends(get_db),
     txn = get_txn(db, txn_id)
     require_owner(db, user, txn)
     case = get_case(db, txn_id)
-    txn.status, txn.decision, case.status, case.decision = "escalated", "ESCALATE", "escalated", "ESCALATE"
+    txn.status, txn.decision, case.status, case.decision = "ESCALATED", "ESCALATE", "ESCALATED", "ESCALATE"
+    case.resolution = "escalated"
     log(db, action="case_escalated", actor=user.name, case_id=case.id,
         transaction_id=txn.id, details={"to": "officer_review"})
     db.commit()
@@ -442,7 +461,8 @@ def block(txn_id: int, db: Session = Depends(get_db),
         raise HTTPException(status_code=403, detail="Officer role required to block")
     txn = get_txn(db, txn_id)
     case = get_case(db, txn_id)
-    txn.status, txn.decision, case.status, case.decision = "blocked", "BLOCK", "blocked", "BLOCK"
+    txn.status, txn.decision, case.status, case.decision = "BLOCKED", "BLOCK", "BLOCKED", "BLOCK"
+    case.resolution = "blocked"
     log(db, action="transaction_blocked", actor=user.name, case_id=case.id,
         transaction_id=txn.id, details={"reason": "officer decision"})
     db.commit()
