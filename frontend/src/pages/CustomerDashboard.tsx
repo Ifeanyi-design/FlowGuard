@@ -53,7 +53,7 @@ export default function CustomerDashboard() {
   const [history, setHistory] = useState<{ case: CaseItem; transaction: Transaction }[]>([]);
   const [purpose, setPurpose] = useState('Debt repayment');
   const [beneficiary, setBeneficiary] = useState('John Doe');
-  const [decision, setDecision] = useState<{ decision: string; reason: string; caseStatus?: string } | null>(null);
+  const [decision, setDecision] = useState<{ decision: string; recommendation?: string; reason: string; caseStatus?: string } | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -210,7 +210,7 @@ export default function CustomerDashboard() {
     const r = await run(() => api.authorize(txn.id));
     if (!r) return;
     setRisk(r.risk);
-    setDecision({ decision: r.decision, reason: r.reason, caseStatus: r.case_status });
+    setDecision({ decision: r.decision, recommendation: r.recommendation, reason: r.reason, caseStatus: r.case_status });
     setStep('decided');
     const g = await api.getTxn(txn.id).catch(() => null);
     if (g) setTxn(g.transaction);
@@ -709,12 +709,12 @@ export default function CustomerDashboard() {
             {step === 'decided' && decision && (
               <div className="animate-fade-up space-y-1.5 rounded-xl border border-line bg-black/40 p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-                  <BadgeCheck size={16} className="text-accent" aria-hidden /> Bank decision: {decision.decision}
+                  <BadgeCheck size={16} className="text-accent" aria-hidden /> Submitted for bank review
                 </div>
-                <p className="text-xs leading-relaxed text-slate-400">{decision.reason}</p>
-                {decision.decision === 'APPROVE' && decision.caseStatus === 'AWAITING_OFFICER' && (
+                <p className="text-xs leading-relaxed text-slate-400">FlowGuard assessment: {decision.recommendation ?? decision.decision} — {decision.reason}</p>
+                {decision.caseStatus === 'AWAITING_OFFICER' && (
                   <p className="text-xs font-semibold text-amber-300">
-                    Pending final confirmation by a bank officer in the Ops dashboard.
+                    A bank officer now reviews the evidence and makes the final authorization decision in Ops.
                   </p>
                 )}
                 <p className="text-[11px] text-slate-500">
@@ -737,7 +737,7 @@ export default function CustomerDashboard() {
               <div className="min-w-0">
                 <div className="font-mono text-sm font-semibold text-slate-100">{naira(txn.amount)}</div>
                 <div className="truncate text-[11px] text-slate-500">
-                  Case #{caseId} · {decision ? decision.decision : 'awaiting decision'}
+                  Case #{caseId} · {decision ? (decision.recommendation ?? decision.decision) : 'awaiting decision'}
                 </div>
               </div>
               <RiskBadge risk={risk} size="sm" />
@@ -749,7 +749,7 @@ export default function CustomerDashboard() {
                 title={!bioDone ? 'Complete biometric verification first' : undefined}
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_-8px_rgba(52,211,153,0.9)] transition-all duration-200 hover:from-emerald-300 hover:to-emerald-500 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
               >
-                <BadgeCheck size={16} aria-hidden /> Confirm & submit to bank
+                <BadgeCheck size={16} aria-hidden /> Submit for bank review
               </button>
               <button
                 disabled={busy}

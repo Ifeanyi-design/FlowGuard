@@ -188,7 +188,7 @@ export default function BankDashboard() {
               <div className="mt-2">
                 <StatusPill status={pending.transaction.status} size="sm" />
               </div>
-              {pending.transaction.status === 'AUTHORIZED' ? (
+              {pending.case_status === 'AWAITING_OFFICER' ? (
                 <Link
                   to={`/cases/${pending.case_id}`}
                   className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_-8px_rgba(52,211,153,0.9)] transition-all duration-200 hover:from-emerald-300 hover:to-emerald-500"

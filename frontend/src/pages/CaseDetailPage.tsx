@@ -125,7 +125,9 @@ export default function CaseDetailPage() {
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <StatusPill status={c.status} />
-          <span className="font-mono text-[11px] text-slate-500">decision: {c.decision}</span>
+          <span className="font-mono text-[11px] text-slate-500" title={c.resolution ? 'Bank decision' : 'FlowGuard recommendation'}>
+            {c.resolution ? `bank: ${c.decision}` : `rec.: ${c.decision}`}
+          </span>
           <span className="font-mono text-[11px] text-slate-500">txn: {t.status}</span>
         </div>
         <div className="mt-4">
@@ -252,7 +254,8 @@ export default function CaseDetailPage() {
         <Panel className="p-5">
           <SectionHeading title="Bank decision" />
           <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            Bank decision: <b className="text-slate-200">{c.decision}</b> · status {c.status}. Approval, escalation
+            Bank decision: <b className="text-slate-200">{c.resolution ?? 'pending'}</b> · FlowGuard
+            recommendation: <b className="text-slate-200">{c.decision}</b> · status {c.status}. Approval, escalation
             and blocking are decided by bank officers in the Ops dashboard — never by the customer.
           </p>
         </Panel>

@@ -161,7 +161,9 @@ export default function OpsDashboard() {
                       <StatusPill status={r.case.status} size="sm" />
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-[11px] text-slate-400">{r.case.decision}</span>
+                      <span className="font-mono text-[11px] text-slate-400" title={r.case.resolution ? 'Bank decision' : 'FlowGuard recommendation'}>
+                        {r.case.decision}{r.case.resolution ? ' · bank' : ' · rec.'}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
