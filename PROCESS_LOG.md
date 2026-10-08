@@ -229,3 +229,21 @@
 - Commands: `pytest -q` → 14 passed (new asserts: AUTHORIZED/AWAITING_OFFICER, officer APPROVE → SETTLED +
   payment_settled_simulated, deny → UNDER_REVIEW/sender_disputed); `npm run typecheck` → pass.
 - Remaining: commit + push + Render deploy + smoke test.
+
+---
+
+## 2026-10-08T03:00:00Z — Phase 15: ALAT-style bank app around the verification flow
+
+- Objective: User request — login, dashboard (balance, airtime/data/bills, last-3 history), "Enhanced protection"
+  banner beside balance for large inflows, Verify-payment page (OTP + mock Face ID/fingerprint + checklist),
+  officer completion in Ops.
+- Change (backend): POST /api/auth/login (seeded email + demo PIN 1234, documented mock); GET /api/dashboard
+  (account, last 3 txns, pending actionable inflow); POST /api/demo/topup (airtime/data/bill, deducts balance,
+  SETTLED + audit, 422 if insufficient); POST /api/transactions/{id}/biometric (face|fingerprint, mocked,
+  requires sender_confirmed, audited) — authorization now also requires biometric_verified (409 otherwise).
+  (frontend): LoginPage, BankDashboard (balance hide/show, banner → /verify/:txnId, quick-action modals, history,
+  demo inflow simulator), Verify page deep-links existing txns, biometric scan modal, protection checklist;
+  App has auth guard + logout + role-aware nav.
+- Commands: `pytest -q` → 15 passed (login 401/ok, dashboard shape, topup deduct/insufficient, biometric gate);
+  `npm run typecheck` → pass (one fix: replaceAll → regex for ES2020 lib).
+- Remaining: commit + push + Render deploy + smoke test.

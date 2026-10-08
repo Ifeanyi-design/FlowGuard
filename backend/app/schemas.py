@@ -83,6 +83,10 @@ class IdentityConfirmRequest(BaseModel):
     code: str = Field(..., min_length=4, max_length=12)
 
 
+class BiometricRequest(BaseModel):
+    method: str = Field(..., pattern="^(face|fingerprint)$")
+
+
 class ResetRequest(BaseModel):
     scenario: str = "A"
 

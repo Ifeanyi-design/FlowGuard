@@ -47,6 +47,11 @@ def test_full_demo_flow():
     assert r.status_code == 200, r.text
     assert "risk" in r.json() and "suggested_decision" in r.json()
 
+    # Biometric checkpoint gates authorization.
+    assert client.post(f"/api/transactions/{txn_id}/authorize", headers=h).status_code == 409
+    assert client.post(f"/api/transactions/{txn_id}/biometric",
+                       json={"method": "fingerprint"}, headers=h).status_code == 200
+
     r = client.post(f"/api/transactions/{txn_id}/authorize", headers=h)
     assert r.status_code == 200, r.text
     assert r.json()["decision"] in ("APPROVE", "STEP_UP", "HOLD", "ESCALATE", "BLOCK")
@@ -62,9 +67,9 @@ def test_full_demo_flow():
     case_id = cases[0]["case"]["id"]
     audit = client.get(f"/api/cases/{case_id}/audit", headers=h).json()["audit"]
     actions = [a["action"] for a in audit]
-    for expected in ("transaction_received", "risk_triggered", "customer_verified",
-                     "purpose_selected", "beneficiary_submitted", "risk_reassessed",
-                     "authorization_decision"):
+    for expected in ("transaction_received", "risk_triggered", "identity_verified",
+                     "customer_verified", "purpose_selected", "beneficiary_submitted",
+                     "risk_reassessed", "biometric_verified", "authorization_decision"):
         assert expected in actions, f"missing {expected} in {actions}"
 
     # Bank confirmation settles (simulated) an authorized payment.
@@ -98,3 +103,29 @@ def test_block_requires_officer():
     assert v.json()["verification_state"] == "sender_disputed"
     denied = client.get(f"/api/transactions/{txn_id}", headers=h).json()
     assert denied["transaction"]["status"] == "UNDER_REVIEW"
+
+
+def test_login_dashboard_topup():
+    from fastapi.testclient import TestClient
+
+    from app.main import app as _app
+
+    c = TestClient(_app)
+    c.post("/api/demo/reset", json={"scenario": "A"})
+    bad = c.post("/api/auth/login", json={"email": "treasure@demo.bank", "pin": "0000"})
+    assert bad.status_code == 401
+    ok = c.post("/api/auth/login", json={"email": "treasure@demo.bank", "pin": "1234"}).json()
+    uid = ok["ids"]["customer"]
+    h = {"X-User-Id": str(uid)}
+    dash = c.get("/api/dashboard", headers=h).json()
+    assert dash["account"]["number_masked"].endswith("6789")
+    assert len(dash["recent"]) <= 3
+    bal = dash["account"]["balance"]
+    t = c.post("/api/demo/topup", json={"kind": "airtime", "amount": 500,
+                                        "phone": "08030000000", "network": "MTN"}, headers=h)
+    assert t.status_code == 200, t.text
+    assert t.json()["balance"] == bal - 500
+    assert t.json()["transaction"]["status"] == "SETTLED"
+    poor = c.post("/api/demo/topup", json={"kind": "data", "amount": 10_000_000,
+                                            "phone": "08030000000", "network": "MTN"}, headers=h)
+    assert poor.status_code == 422

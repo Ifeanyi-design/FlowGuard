@@ -73,3 +73,22 @@ export const SCENARIO_CATALOGUE: ScenarioInfo[] = [
 ];
 
 export const PURPOSES = ['Debt repayment', 'Family support', 'Business payment', 'Savings', 'Other'];
+
+export interface PendingTxn {
+  transaction: Transaction;
+  risk: { score: number; level: string };
+  case_id: number | null;
+}
+
+export interface DashboardData {
+  user: { id: number; name: string };
+  account: { id: number; number_masked: string; balance: number; normal_limit: number };
+  recent: Transaction[];
+  pending: PendingTxn | null;
+}
+
+export interface LoginResponse {
+  user: { id: number; name: string; email: string; role: string };
+  account: { id: number; number_masked: string; balance: number; normal_limit: number } | null;
+  ids: { customer: number; officer: number };
+}

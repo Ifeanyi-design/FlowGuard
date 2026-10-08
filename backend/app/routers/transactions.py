@@ -11,6 +11,7 @@ from ..database import get_db
 from ..models import Account, Beneficiary, Case, RiskEvent, Transaction, User
 from ..schemas import (
     BeneficiaryRequest,
+    BiometricRequest,
     DecisionOut,
     IdentityConfirmRequest,
     IncomingRequest,
@@ -375,6 +376,28 @@ def reassess(txn_id: int, db: Session = Depends(get_db),
     return {"risk": result, "suggested_decision": policy["decision"], "reason": policy["reason"]}
 
 
+@router.post("/{txn_id}/biometric")
+def biometric(txn_id: int, body: BiometricRequest, db: Session = Depends(get_db),
+              x_user_id: str | None = Header(default=None, alias="X-User-Id")):
+    """Payment-verification checkpoint: mocked inherence check (Face ID / fingerprint).
+
+    PROTOTYPE ONLY — a real integration would verify a signed WebAuthn/
+    platform-biometric assertion server-side. Here the method is recorded and
+    audited; the gate (this must precede authorization) is what is real.
+    """
+    user = actor(db, x_user_id)
+    txn = get_txn(db, txn_id)
+    require_owner(db, user, txn)
+    case = get_case(db, txn_id)
+    if not txn.sender_confirmed or case.verification_state != "sender_confirmed":
+        raise HTTPException(status_code=409, detail="Confirm the sender first")
+    case.verification_state = "biometric_verified"
+    log(db, action="biometric_verified", actor=user.name, case_id=case.id,
+        transaction_id=txn.id, details={"method": f"mock-{body.method}"})
+    db.commit()
+    return {"ok": True, "verification_state": case.verification_state}
+
+
 def _finalize_authorize(db: Session, txn: Transaction, case: Case, user: User) -> dict:
     # PRD §10 states. HOLD keeps the transaction contained UNDER_REVIEW.
     status_map = {"APPROVE": "AUTHORIZED", "STEP_UP": "STEP_UP_REQUIRED", "HOLD": "UNDER_REVIEW",
@@ -385,9 +408,11 @@ def _finalize_authorize(db: Session, txn: Transaction, case: Case, user: User) -
         return {"decision": txn.decision, "reason": "Idempotent replay — already decided.",
                 "risk": result, "transaction": TransactionOut.model_validate(txn).model_dump(),
                 "case_status": case.status, "bank": {}}
-    if not (txn.sender_confirmed and txn.purpose and txn.beneficiary_name and txn.reassessed):
+    if not (txn.sender_confirmed and txn.purpose and txn.beneficiary_name and txn.reassessed
+            and case.verification_state == "biometric_verified"):
         raise HTTPException(status_code=409,
-                            detail="Complete verification, purpose, beneficiary and reassessment first")
+                            detail="Complete identity, sender, purpose, beneficiary, reassessment "
+                                   "and biometric verification first")
     acct = require_owner(db, user, txn)
     largest = acct.normal_transaction_limit or LARGEST_HISTORY
     flags = scenario_flags(txn.scenario)

@@ -10,7 +10,7 @@ from . import config
 from .database import Base, SessionLocal, engine
 from .models import User  # noqa: F401  (register models)
 from .models import Account, AuditLog, Beneficiary, Case, RiskEvent, Transaction  # noqa: F401
-from .routers import cases, demo, transactions
+from .routers import auth, bank, cases, demo, transactions
 from .seed import init_db, seed
 
 
@@ -39,6 +39,8 @@ app.add_middleware(
 app.include_router(transactions.router)
 app.include_router(cases.router)
 app.include_router(demo.router)
+app.include_router(auth.router)
+app.include_router(bank.router)
 
 
 @app.get("/api/health")

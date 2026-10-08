@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, BadgeCheck, CheckCircle2, KeyRound, Landmark, ShieldCheck, UserCheck } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, BadgeCheck, CheckCircle2, Clock, Fingerprint, KeyRound, Landmark, ScanFace, ShieldCheck, UserCheck } from 'lucide-react';
 import { api, setIds } from '../api';
 import { PURPOSES, SCENARIO_CATALOGUE, type CaseItem, type RiskResult, type Transaction } from '../types';
 import { RiskBadge, ScoreBar, naira } from '../components/ui';
@@ -8,6 +8,7 @@ import { RiskBadge, ScoreBar, naira } from '../components/ui';
 type Step = 'idle' | 'alert' | 'verified' | 'reassessed' | 'decided';
 
 export default function CustomerDashboard() {
+  const { txnId } = useParams();
   const [scenario, setScenario] = useState('A');
   const [sender, setSender] = useState('Faith');
   const [amount, setAmount] = useState(4000000);
@@ -21,6 +22,10 @@ export default function CustomerDashboard() {
   const [codeInput, setCodeInput] = useState('');
   const [identityDone, setIdentityDone] = useState(false);
   const [disputed, setDisputed] = useState(false);
+  const [bioDone, setBioDone] = useState(false);
+  const [bioModal, setBioModal] = useState<null | 'face' | 'fingerprint'>(null);
+  const [bioScanning, setBioScanning] = useState(false);
+  const timer = useRef<number | null>(null);
   const [history, setHistory] = useState<{ case: CaseItem; transaction: Transaction }[]>([]);
   const [purpose, setPurpose] = useState('Debt repayment');
   const [beneficiary, setBeneficiary] = useState('John Doe');
@@ -29,8 +34,35 @@ export default function CustomerDashboard() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.reset('A').then((r) => setIds(r.customer_id, r.officer_id)).catch(() => {});
+    if (txnId) {
+      loadExisting(Number(txnId));
+    } else {
+      api.reset('A').then((r) => setIds(r.customer_id, r.officer_id)).catch(() => {});
+    }
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadExisting(id: number) {
+    setError('');
+    try {
+      const g = await api.getTxn(id);
+      setTxn(g.transaction);
+      setCaseId(g.case_id);
+      setRisk(g.risk);
+      syncIdentity(g.verification_state);
+      setPurpose(g.transaction.purpose || 'Debt repayment');
+      setBeneficiary(g.transaction.beneficiary_name || 'John Doe');
+      setStep('alert');
+      setDecision(null);
+      setDisputed(false);
+      setBioDone(g.verification_state === 'biometric_verified');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load transaction');
+    }
+  }
 
   async function run<T>(fn: () => Promise<T>): Promise<T | null> {
     setError('');
@@ -62,6 +94,8 @@ export default function CustomerDashboard() {
     setCodeInput('');
     setIdentityDone(false);
     setDisputed(false);
+    setBioDone(false);
+    setBioModal(null);
   }
 
   async function loadHistory() {
@@ -123,6 +157,25 @@ export default function CustomerDashboard() {
     setRisk(r.risk);
     setDecision({ decision: r.suggested_decision, reason: r.reason });
     setStep('reassessed');
+  }
+
+  function startBio(method: 'face' | 'fingerprint') {
+    if (!txn || bioScanning) return;
+    setBioModal(method);
+    setBioScanning(true);
+    setError('');
+    timer.current = window.setTimeout(async () => {
+      try {
+        await api.biometric(txn.id, method);
+        setBioDone(true);
+        setBioModal(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Biometric check failed');
+        setBioModal(null);
+      } finally {
+        setBioScanning(false);
+      }
+    }, 1800);
   }
 
   async function authorize() {
@@ -341,8 +394,55 @@ export default function CustomerDashboard() {
             </div>
           )}
 
+          {(step === 'reassessed' || step === 'decided') && risk && (
+            <div className="rounded-xl border border-slate-200 bg-mist p-4">
+              <h2 className="font-semibold">5 · Protection checklist</h2>
+              <ul className="mt-2 space-y-1.5 text-sm">
+                {[
+                  { label: `Amount screening — ${naira(txn.amount)} vs ${naira(500000)} usual max`, st: risk.factors.some((f) => f.signal === 'amount_deviation') ? 'flag' as const : 'ok' as const },
+                  { label: 'Device check', st: risk.factors.some((f) => f.signal === 'new_device') ? 'flag' as const : risk.factors.some((f) => f.signal === 'trusted_device') ? 'ok' as const : 'pending' as const },
+                  { label: 'Sender intelligence', st: risk.factors.some((f) => f.signal === 'sender_risk') ? 'flag' as const : risk.factors.some((f) => f.signal === 'known_sender') ? 'ok' as const : 'pending' as const },
+                  { label: 'Beneficiary screening', st: risk.factors.some((f) => f.signal === 'beneficiary_risk' || f.signal === 'new_beneficiary') ? 'flag' as const : risk.factors.some((f) => f.signal === 'known_beneficiary') ? 'ok' as const : 'pending' as const },
+                  { label: 'Customer identity (one-time code)', st: identityDone ? 'ok' as const : 'pending' as const },
+                  { label: 'Biometric (Face ID / fingerprint)', st: bioDone ? 'ok' as const : 'pending' as const },
+                  { label: 'Bank review', st: step === 'decided' ? 'ok' as const : 'pending' as const }
+                ].map((c) => (
+                  <li key={c.label} className="flex items-center gap-2">
+                    {c.st === 'ok' && <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />}
+                    {c.st === 'flag' && <AlertTriangle size={15} className="shrink-0 text-amber-600" />}
+                    {c.st === 'pending' && <Clock size={15} className="shrink-0 text-slate-300" />}
+                    <span className={c.st === 'pending' ? 'text-slate-400' : ''}>{c.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(step === 'reassessed' || step === 'decided') && (
+            <div className="rounded-xl border border-slate-200 p-4">
+              <h2 className="font-semibold">6 · Verify payment — biometric</h2>
+              {!bioDone ? (
+                <div className="mt-2">
+                  <p className="text-sm text-slate-600">Confirm it's really you with Face ID or fingerprint. Mock check for this prototype — no real biometrics.</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button disabled={busy} onClick={() => startBio('face')} className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                      <ScanFace size={16} /> Face ID
+                    </button>
+                    <button disabled={busy} onClick={() => startBio('fingerprint')} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                      <Fingerprint size={16} /> Fingerprint
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
+                  <CheckCircle2 size={15} /> Biometric verified — payment check complete.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2 pt-1">
-            <button disabled={busy} onClick={authorize} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            <button disabled={busy || !bioDone} onClick={authorize} title={!bioDone ? 'Complete biometric verification first' : undefined} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
               <BadgeCheck size={16} /> Confirm & submit to bank
             </button>
             <button disabled={busy} onClick={escalate} className="rounded-xl border border-orange-300 px-4 py-2 text-sm font-semibold text-orange-700">
@@ -350,6 +450,22 @@ export default function CustomerDashboard() {
             </button>
           </div>
           <p className="-mt-2 text-xs text-slate-400">Your confirmation submits the case for a bank decision — final authorization always rests with the bank, never the customer.</p>
+
+          {!bioDone && (step === 'reassessed' || step === 'decided') && (
+            <p className="-mt-2 text-xs text-slate-400">Complete biometric verification above to unlock submission — the backend enforces this order.</p>
+          )}
+
+          {bioModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center">
+                {bioModal === 'face'
+                  ? <ScanFace size={64} className="mx-auto animate-pulse text-ink" />
+                  : <Fingerprint size={64} className="mx-auto animate-pulse text-ink" />}
+                <p className="mt-3 text-sm font-semibold">{bioScanning ? 'Scanning…' : 'Done'}</p>
+                <p className="mt-1 text-xs text-slate-400">Mock {bioModal === 'face' ? 'Face ID' : 'fingerprint'} — prototype only, no real biometrics.</p>
+              </div>
+            </div>
+          )}
 
           {step === 'decided' && decision && (
             <div className="rounded-xl border border-slate-200 bg-mist p-4 text-sm">

@@ -22,6 +22,18 @@ export function setIds(customer: string | number | null, officer: string | numbe
 export function getOfficerId() {
   return officerId;
 }
+export function setSession(name: string, role: string) {
+  localStorage.setItem('fg_name', name);
+  localStorage.setItem('fg_role', role);
+}
+export function getSession() {
+  return { name: localStorage.getItem('fg_name'), role: localStorage.getItem('fg_role') };
+}
+export function logout() {
+  userId = null;
+  officerId = null;
+  ['fg_user_id', 'fg_officer_id', 'fg_name', 'fg_role'].forEach((k) => localStorage.removeItem(k));
+}
 
 async function req<T>(path: string, opts: RequestInit = {}, asOfficer = false): Promise<T> {
   const uid = asOfficer ? officerId || userId : userId;
@@ -42,6 +54,17 @@ async function req<T>(path: string, opts: RequestInit = {}, asOfficer = false): 
 
 export const api = {
   health: () => req<{ status: string; db: string }>('/api/health'),
+  login: (email: string, pin: string) =>
+    req<import('./types').LoginResponse>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, pin })
+    }),
+  dashboard: () => req<import('./types').DashboardData>('/api/dashboard'),
+  topup: (kind: string, amount: number, phone: string, network: string) =>
+    req<{ ok: boolean; balance: number; transaction: import('./types').Transaction }>(
+      '/api/demo/topup',
+      { method: 'POST', body: JSON.stringify({ kind, amount, phone, network }) }
+    ),
   reset: (scenario = 'A') =>
     req<{ ok: boolean; scenario: string; description: string; customer_id: number; officer_id: number }>(
       '/api/demo/reset',
@@ -77,6 +100,11 @@ export const api = {
       `/api/transactions/${id}/reassess`,
       { method: 'POST', body: '{}' }
     ),
+  biometric: (id: number, method: 'face' | 'fingerprint') =>
+    req<{ ok: boolean; verification_state: string }>(`/api/transactions/${id}/biometric`, {
+      method: 'POST',
+      body: JSON.stringify({ method })
+    }),
   authorize: (id: number) =>
     req<{ decision: string; reason: string; risk: import('./types').RiskResult; case_status: string; bank: Record<string, unknown> }>(
       `/api/transactions/${id}/authorize`,
