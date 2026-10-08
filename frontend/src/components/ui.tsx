@@ -224,7 +224,14 @@ const STATUS_MAP: Record<string, { label: string; tone: Tone; icon: LucideIcon }
   identity_verified: { label: 'Identity verified', tone: 'emerald', icon: CheckCircle2 },
   sender_confirmed: { label: 'Sender confirmed', tone: 'emerald', icon: CheckCircle2 },
   sender_disputed: { label: 'Sender disputed', tone: 'rose', icon: AlertTriangle },
-  biometric_verified: { label: 'Biometric verified', tone: 'emerald', icon: CheckCircle2 }
+  biometric_verified: { label: 'Biometric verified', tone: 'emerald', icon: CheckCircle2 },
+  // everyday-banking / protection pipeline statuses
+  under_review: { label: 'Under review', tone: 'cyan', icon: ShieldAlert },
+  customer_verified: { label: 'Customer verified', tone: 'emerald', icon: CheckCircle2 },
+  beneficiary_submitted: { label: 'Beneficiary submitted', tone: 'cyan', icon: CheckCircle2 },
+  risk_reassessed: { label: 'Risk reassessed', tone: 'cyan', icon: ShieldCheck },
+  step_up_required: { label: 'Step-up required', tone: 'amber', icon: ShieldAlert },
+  authorized: { label: 'Authorized', tone: 'emerald', icon: BadgeCheck }
 };
 
 /** Status chip for case / transaction / verification states. */
