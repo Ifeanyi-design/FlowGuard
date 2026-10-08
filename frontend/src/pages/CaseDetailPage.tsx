@@ -32,7 +32,10 @@ const AUDIT_ICONS: Record<string, LucideIcon> = {
   beneficiary_submitted: Users,
   risk_reassessed: ShieldCheck,
   biometric_verified: CheckCircle2,
+  review_requested: Send,
+  step_up_completed: ShieldCheck,
   authorization_decision: BadgeCheck,
+  payment_settled_simulated: CheckCircle2,
   case_escalated: AlertTriangle,
   transaction_blocked: Ban,
   officer_approve: CheckCircle2,
@@ -43,6 +46,40 @@ const AUDIT_ICONS: Record<string, LucideIcon> = {
 
 function auditIcon(action: string): LucideIcon {
   return AUDIT_ICONS[action] ?? Circle;
+}
+
+/** Human-readable label: sender_risk -> Sender risk. */
+function metaLabel(key: string): string {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Human-readable value: money formatted, nested objects flattened one level. */
+function metaValue(key: string, value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number' && /amount|balance/i.test(key)) return naira(value);
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return '—';
+    return entries.map(([k, v]) => `${metaLabel(k)}: ${metaValue(k, v)}`).join(' · ');
+  }
+  return String(value);
+}
+
+/** Audit metadata as labeled rows — never a raw JSON dump. */
+function MetaRows({ data }: { data: Record<string, unknown> }) {
+  const entries = Object.entries(data || {});
+  if (entries.length === 0) return null;
+  return (
+    <dl className="mt-1.5 space-y-1 rounded-lg border border-line bg-black/40 p-2.5">
+      {entries.map(([k, v]) => (
+        <div key={k} className="flex items-baseline justify-between gap-3 text-[11px]">
+          <dt className="shrink-0 text-slate-500">{metaLabel(k)}</dt>
+          <dd className="text-right font-medium text-slate-300">{metaValue(k, v)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 export default function CaseDetailPage() {
@@ -288,11 +325,7 @@ export default function CaseDetailPage() {
                       {a.actor} · {new Date(a.timestamp).toLocaleString()}
                     </span>
                   </div>
-                  {hasMeta && (
-                    <pre className="fg-thin-scroll mt-1.5 overflow-x-auto rounded-lg border border-line bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-slate-400">
-                      {JSON.stringify(a.metadata, null, 1)}
-                    </pre>
-                  )}
+                  {hasMeta && <MetaRows data={a.metadata} />}
                 </div>
               </li>
             );
