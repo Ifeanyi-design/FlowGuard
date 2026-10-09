@@ -28,12 +28,19 @@ export default function BankDashboard() {
   const [showBalance, setShowBalance] = useState(true);
   const [modal, setModal] = useState<TopupKind>(null);
   const [phone, setPhone] = useState('08030000000');
-  const [amount, setAmount] = useState(500);
+  // The amount is held as a STRING on purpose: `Number('')` is 0, so a numeric
+  // state makes the field impossible to clear — deleting the digits snaps a "0"
+  // straight back in. Parse to a number only when submitting.
+  const [amount, setAmount] = useState('500');
   const [network, setNetwork] = useState('MTN');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [scenario, setScenario] = useState('A');
   const [catalogue, setCatalogue] = useState<ScenarioInfo[] | null>(null);
+
+  const amountValue = Number(amount);
+  const amountValid =
+    amount.trim() !== '' && Number.isFinite(amountValue) && amountValue > 0 && amountValue <= 100000;
 
   async function load() {
     setError('');
@@ -56,7 +63,7 @@ export default function BankDashboard() {
     setMsg('');
     setError('');
     try {
-      const r = await api.topup(modal, amount, phone, network);
+      const r = await api.topup(modal, amountValue, phone, network);
       setMsg(`${modal[0].toUpperCase() + modal.slice(1)} successful — new balance ${naira(r.balance)}`);
       setModal(null);
       await load();
@@ -328,7 +335,8 @@ export default function BankDashboard() {
                 min={1}
                 max={100000}
                 value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="500"
                 className="fg-input mt-1.5 font-mono"
               />
             </label>
@@ -337,12 +345,12 @@ export default function BankDashboard() {
             </p>
 
             <button
-              disabled={busy || amount <= 0 || amount > 100000}
+              disabled={busy || !amountValid}
               onClick={doTopup}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/10 py-2.5 text-sm font-semibold text-accent transition-all duration-200 hover:bg-accent/20 hover:shadow-glow-cyan disabled:opacity-50"
             >
               {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : null}
-              {busy ? 'Processing…' : `Pay ${naira(amount)}`}
+              {busy ? 'Processing…' : amountValid ? `Pay ${naira(amountValue)}` : 'Enter an amount'}
             </button>
             <p className="mt-2 text-center text-[11px] text-slate-500">
               Simulated purchase — recorded in history, no real value moves.

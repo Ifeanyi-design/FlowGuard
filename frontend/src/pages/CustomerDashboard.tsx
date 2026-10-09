@@ -37,7 +37,11 @@ export default function CustomerDashboard() {
   const [scenario, setScenario] = useState('A');
   const [catalogue, setCatalogue] = useState<ScenarioInfo[] | null>(null);
   const [sender, setSender] = useState('Faith');
-  const [amount, setAmount] = useState(4000000);
+  // Held as a STRING so the field can actually be cleared — `Number('')` is 0,
+  // which snaps a "0" back in on every delete. Parsed only when submitting.
+  const [amount, setAmount] = useState('4000000');
+  const amountValue = Number(amount);
+  const amountValid = amount.trim() !== '' && Number.isFinite(amountValue) && amountValue > 0;
   const [txn, setTxn] = useState<Transaction | null>(null);
   const [caseId, setCaseId] = useState<number | null>(null);
   const [risk, setRisk] = useState<RiskResult | null>(null);
@@ -111,7 +115,7 @@ export default function CustomerDashboard() {
     const r = await run(() => api.reset(scenario));
     if (!r) return;
     setIds(r.customer_id, r.officer_id);
-    const inc = await run(() => api.incoming(sender || 'Faith', amount, scenario));
+    const inc = await run(() => api.incoming(sender || 'Faith', amountValue, scenario));
     if (!inc) return;
     setTxn(inc.transaction);
     loadHistory();
@@ -329,14 +333,16 @@ export default function CustomerDashboard() {
               Amount (₦)
               <input
                 type="number"
+                min={1}
                 value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="4000000"
                 className="fg-input mt-1.5 font-mono"
               />
             </label>
             <div className="flex items-end">
               <button
-                disabled={busy}
+                disabled={busy || !amountValid}
                 onClick={start}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm font-semibold text-accent transition-all duration-200 hover:bg-accent/20 hover:shadow-glow-cyan disabled:opacity-50"
               >
